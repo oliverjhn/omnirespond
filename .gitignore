@@ -13,7 +13,6 @@ archive_v1/
 old_tests/
 
 # IDE
-.vscode/
 .idea/
 
 # OS

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+env/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+
+# Project specific
+qdrant_storage/
+archive_v1/
+old_tests/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

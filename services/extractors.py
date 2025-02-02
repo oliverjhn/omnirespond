@@ -1,13 +1,13 @@
-from typing import List, Union
+from typing import List
 from abc import ABC, abstractmethod
 import tempfile
 import os
-import time
 from io import BytesIO
 import pypdf
 import pymupdf4llm
 from .base import BaseService
 from .types import DocumentChunk
+from .base import log_timing
 
 class TextExtractor(ABC):
     @abstractmethod
@@ -33,7 +33,7 @@ class PyPDFExtractor(TextExtractor):
                 chunks.append(DocumentChunk(text=chunk_text))
             return chunks
             
-        except Exception as e:
+        except Exception:
             raise
 
 class UnstructuredPDFExtractor(TextExtractor):
@@ -80,7 +80,7 @@ class StandardPDFExtractor(TextExtractor):
                 chunks.append(DocumentChunk(text=chunk_text))
             return chunks
             
-        except Exception as e:
+        except Exception:
             raise
 
 class PlainTextExtractor(TextExtractor):
@@ -97,7 +97,7 @@ class PlainTextExtractor(TextExtractor):
                 chunk_text = " ".join(words[i:i + self.chunk_size])
                 chunks.append(DocumentChunk(text=chunk_text))
             return chunks
-        except Exception as e:
+        except Exception:
             raise
 
 class ExtractorService(BaseService):
@@ -117,6 +117,7 @@ class ExtractorService(BaseService):
             elif extractor_type == "pypdf":
                 self.extractors[".pdf"] = PyPDFExtractor()
                 
+    @log_timing
     async def process_document(self, content: bytes, filename: str) -> List[DocumentChunk]:
         try:
             extension = "." + filename.split(".")[-1].lower()

@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict
 
 class UploadRequest(BaseModel):
-    collection_name: str = Field(default="uncategorised", description="Collection name to store the document in")
+    collection_name: str = Field(default="unsorted", description="Collection name to store the document in")
     extractor_type: str = Field(default="pypdf", description="Type of extractor to use: pypdf, standard, or unstructured")
 
 class UploadResponse(BaseModel):
@@ -12,7 +12,7 @@ class UploadResponse(BaseModel):
 
 class QueryRequest(BaseModel):
     query: str = Field(..., description="The query to search for")
-    collection_name: str = Field(default="default", description="Collection to search in")
+    collection_name: str = Field(default="unsorted", description="Collection to search in")
 
 class TimingInfo(BaseModel):
     search_time: str

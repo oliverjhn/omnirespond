@@ -26,10 +26,20 @@ class Settings(BaseSettings):
     
     # API Configuration
     MAX_REQUEST_SIZE: int = 20 * 1024 * 1024  # 20MB
-    DEFAULT_COLLECTION: str = "uncategorised"
+    DEFAULT_COLLECTION: str = "unsorted"
     
     # Embedding Model Configuration
     DEFAULT_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    
+    # Sparse Vector Configuration
+    SPARSE_VECTOR_ENABLED: bool = True
+    BM25_K1: float = 1.2
+    BM25_B: float = 0.75
+    
+    # Hybrid Search Configuration
+    HYBRID_SEARCH_ENABLED: bool = True
+    DENSE_WEIGHT: float = 0.5  # Weight for dense vector in hybrid search
+    SPARSE_WEIGHT: float = 0.5  # Weight for sparse vector in hybrid search
     
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
@@ -64,6 +74,12 @@ MAX_CHUNKS_PER_FILE = settings.MAX_CHUNKS_PER_FILE
 MAX_REQUEST_SIZE = settings.MAX_REQUEST_SIZE
 DEFAULT_COLLECTION = settings.DEFAULT_COLLECTION
 DEFAULT_EMBEDDING_MODEL = settings.DEFAULT_EMBEDDING_MODEL
+SPARSE_VECTOR_ENABLED = settings.SPARSE_VECTOR_ENABLED
+BM25_K1 = settings.BM25_K1
+BM25_B = settings.BM25_B
+HYBRID_SEARCH_ENABLED = settings.HYBRID_SEARCH_ENABLED
+DENSE_WEIGHT = settings.DENSE_WEIGHT
+SPARSE_WEIGHT = settings.SPARSE_WEIGHT
 
 # Validate required settings
 def validate_settings():

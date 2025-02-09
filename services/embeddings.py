@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Dict
 import numpy as np
 from .base import BaseService, log_timing
 from openai import OpenAI
-from fastembed import TextEmbedding
+from fastembed import TextEmbedding, SparseTextEmbedding
+
 
 class EmbeddingService(BaseService):
     def __init__(self, settings):
@@ -32,6 +33,40 @@ class EmbeddingService(BaseService):
     def dimension(self) -> int:
         # text-embedding-3-small dimension
         return 1536
+
+
+class SparseEmbeddingService(BaseService):
+    def __init__(self, settings):
+        super().__init__()
+
+    @log_timing
+    async def sparse_embed_chunks(
+        self, chunks: List[str], model_name: str = None
+    ) -> List[Dict[str, List[float]]]:
+        """Generate sparse embeddings in a Qdrant-compatible format
+        Returns:
+            List of dicts with 'indices' and 'values' keys, where:
+            - indices: List[int] - positions of non-zero elements
+            - values: List[float] - values at those positions
+        """
+        try:
+            print("generating sparse embeddings")
+            # model_name = model_name or "prithivida/Splade_PP_en_v1"
+            model_name = model_name or "Qdrant/bm25"
+            sparse_model = SparseTextEmbedding(model_name=model_name)
+            sparse_embeddings = list(sparse_model.embed(chunks))
+
+            # Convert SparseEmbedding objects to Qdrant-compatible format
+            return [
+                {
+                    "indices": embedding.indices.tolist(),
+                    "values": embedding.values.tolist(),
+                }
+                for embedding in sparse_embeddings
+            ]
+        except Exception as e:
+            self.logger.error(f"Failed to generate sparse embeddings: {str(e)}")
+            raise
 
 
 class FastEmbeddingService(BaseService):

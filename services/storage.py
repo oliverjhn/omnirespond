@@ -21,52 +21,6 @@ class StorageService(BaseService):
         )
 
     @log_timing
-    async def store_chunks(self, chunks: List[DocumentChunk], metadata: dict) -> str:
-        """Store all chunk texts in a single file with separators"""
-        try:
-            CHUNK_SEPARATOR = "\n[CHUNK_SEPARATOR]\n"
-            chunk_texts = [chunk.text for chunk in chunks]
-            full_content = CHUNK_SEPARATOR.join(chunk_texts)
-
-            collection = metadata.get("collection", "unsorted")
-            filename = metadata.get("filename", "unnamed")
-            document_key = f"{collection}/{filename}/chunks.txt"
-
-            self.client.put_object(
-                Bucket=self.bucket_name,
-                Key=document_key,
-                Body=full_content.encode("utf-8"),
-            )
-            return document_key
-        except Exception as e:
-            self.logger.error(f"Failed to store chunks: {str(e)}")
-            raise
-
-    @log_timing
-    async def get_chunks(self, document_key: str) -> List[str]:
-        """Retrieve and split chunks from storage"""
-        try:
-            response = self.client.get_object(Bucket=self.bucket_name, Key=document_key)
-            content = response["Body"].read().decode("utf-8")
-            return content.split("\n[CHUNK_SEPARATOR]\n")
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve chunks: {str(e)}")
-            raise
-
-    @log_timing
-    async def get_chunk(self, document_key: str, chunk_index: int) -> str:
-        try:
-            response = self.client.get_object(Bucket=self.bucket_name, Key=document_key)
-            content = response["Body"].read().decode("utf-8")
-            chunks = content.split("\n[CHUNK_SEPARATOR]\n")
-            if 0 <= chunk_index < len(chunks):
-                return chunks[chunk_index]
-            raise ValueError(f"Chunk index {chunk_index} out of range")
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve chunk: {str(e)}")
-            raise
-
-    @log_timing
     async def store_chunks_json(
         self,
         chunks: List[DocumentChunk],
@@ -115,17 +69,6 @@ class StorageService(BaseService):
             raise
 
     @log_timing
-    async def get_chunks_json(self, document_key: str) -> List[str]:
-        """Retrieve chunks from JSON storage"""
-        try:
-            response = self.client.get_object(Bucket=self.bucket_name, Key=document_key)
-            content = json.loads(response["Body"].read().decode("utf-8"))
-            return [chunk["text"] for chunk in content["chunks"]]
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve chunks from JSON: {str(e)}")
-            raise
-
-    @log_timing
     async def get_chunk_json(self, document_key: str, chunk_index: int) -> str:
         """Retrieve a specific chunk from JSON storage"""
         try:
@@ -149,13 +92,3 @@ class StorageService(BaseService):
         except Exception as e:
             self.logger.error(f"Failed to retrieve document metadata: {str(e)}")
             raise
-
-    async def get_chunk_with_fallback(self, document_key: str, chunk_index: int) -> str:
-        """Try JSON format first, fall back to text format if needed"""
-        try:
-            return await self.get_chunk_json(document_key, chunk_index)
-        except Exception as e:
-            self.logger.warning(
-                f"Failed to get JSON chunk, trying text format: {str(e)}"
-            )
-            return await self.get_chunk(document_key, chunk_index)

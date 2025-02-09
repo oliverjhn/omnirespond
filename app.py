@@ -17,8 +17,8 @@ from services import (
 # Add this near the top of app.py, before creating the FastAPI app
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'  # Simplified timestamp format
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",  # Simplified timestamp format
 )
 
 settings = get_settings()

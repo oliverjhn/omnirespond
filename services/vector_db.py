@@ -25,12 +25,16 @@ class VectorDBService(BaseService):
             if collection_name not in [col.name for col in collections.collections]:
                 self.client.recreate_collection(
                     collection_name=collection_name,
-                    vectors_config=models.VectorParams(
-                        size=vector_size, distance=models.Distance.COSINE
-                    ),
-                    # sparse_vectors_config={
-                    #     models.SparseVectorParams(modifier=models.Modifier.IDF)
-                    # },
+                    vectors_config={
+                        "dense": models.VectorParams(
+                            size=vector_size, distance=models.Distance.COSINE
+                        )
+                    },
+                    sparse_vectors_config={
+                        "sparse": models.SparseVectorParams(
+                            modifier=models.Modifier.IDF
+                        )
+                    },
                 )
                 self.logger.info(f"Created collection: {collection_name}")
         except Exception as e:
@@ -41,24 +45,33 @@ class VectorDBService(BaseService):
     async def store_embeddings(
         self,
         embeddings: List[np.ndarray],
+        sparse_embeddings: List[Dict[str, List[float]]],
         chunks: List[DocumentChunk],
         document_key: str,
         metadata: dict,
     ):
-        """Store embeddings with their metadata"""
+        """Store both dense and sparse embeddings with their metadata"""
         try:
             collection = metadata.get("collection", "unsorted")
             points = [
                 PointStruct(
                     id=self._generate_chunk_id(metadata["filename"], chunk),
-                    vector=embedding.tolist(),
+                    vector={
+                        "dense": embedding.tolist(),
+                        "sparse": models.SparseVector(
+                            indices=sparse_embedding["indices"],
+                            values=sparse_embedding["values"],
+                        ),
+                    },
                     payload={
                         **metadata,
                         "chunk_index": idx,
                         "document_key": document_key,
                     },
                 )
-                for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+                for idx, (chunk, embedding, sparse_embedding) in enumerate(
+                    zip(chunks, embeddings, sparse_embeddings)
+                )
             ]
             self.client.upsert(collection_name=collection, points=points)
         except Exception as e:
@@ -105,29 +118,33 @@ class VectorDBService(BaseService):
         self,
         collection_name: str,
         query_vector: np.ndarray,
-        query_text: str,
-        limit: int = 5,
+        sparse_vector: Dict[str, List[float]],
+        dense_limit: int = 5,
+        sparse_limit: int = 5,
     ) -> List[Dict]:
         try:
-            results = self.client.query_points(
+            response = self.client.query_points(
                 collection_name=collection_name,
                 prefetch=[
                     models.Prefetch(
                         query=query_vector.tolist(),
                         using="dense",
-                        limit=limit,
+                        limit=dense_limit,
                     ),
                     models.Prefetch(
                         query=models.SparseVector(
-                            indices=[...],
-                            values=[...],
+                            indices=sparse_vector["indices"],
+                            values=sparse_vector["values"],
                         ),
                         using="sparse",
-                        limit=limit,
+                        limit=sparse_limit,
                     ),
                 ],
                 query=models.FusionQuery(fusion=models.Fusion.RRF),
             )
+
+            # Extract points from the QueryResponse object
+            results = response.points
 
             return [
                 {

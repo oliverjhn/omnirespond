@@ -1,8 +1,8 @@
-from typing import List, Dict
+from typing import Dict
 from .base import BaseService, log_timing
 from .storage import StorageService
 from .vector_db import VectorDBService
-from .embeddings import EmbeddingService
+from .embeddings import EmbeddingService, SparseEmbeddingService
 from .llm import LLMService
 from .extractors import ExtractorService
 import time
@@ -26,6 +26,7 @@ class DocumentService(BaseService):
         self.llm = llm
         self.extractor = extractor
         self.settings = settings
+        self.sparse_embedder = SparseEmbeddingService(settings)
 
     @log_timing
     async def process_document(self, content: bytes, metadata: dict) -> Dict:
@@ -44,11 +45,15 @@ class DocumentService(BaseService):
                 original_content=content,
                 content_type=content_type,
             )
-            embedding_task = self.embedder.embed_chunks([c.text for c in chunks])
 
-            # Wait for both operations to complete
-            document_key, embeddings = await asyncio.gather(
-                storage_task, embedding_task
+            # Generate both dense and sparse embeddings
+            chunk_texts = [c.text for c in chunks]
+            dense_task = self.embedder.embed_chunks(chunk_texts)
+            sparse_task = self.sparse_embedder.sparse_embed_chunks(chunk_texts)
+
+            # Wait for all operations to complete
+            document_key, dense_embeddings, sparse_embeddings = await asyncio.gather(
+                storage_task, dense_task, sparse_task
             )
 
             # Create collection and store embeddings
@@ -56,7 +61,7 @@ class DocumentService(BaseService):
                 metadata["collection"], self.embedder.dimension
             )
             await self.vector_db.store_embeddings(
-                embeddings, chunks, document_key, metadata
+                dense_embeddings, sparse_embeddings, chunks, document_key, metadata
             )
 
             return {"status": "success", "chunk_count": len(chunks)}
@@ -82,10 +87,23 @@ class DocumentService(BaseService):
 
             # Search timing
             search_start = time.perf_counter()
-            query_embedding = (await self.embedder.embed_chunks([query]))[0]
-            search_results = await self.vector_db.search(
-                collection_name, query_embedding
+            dense_task = self.embedder.embed_chunks([query])
+            sparse_task = self.sparse_embedder.sparse_embed_chunks([query])
+            dense_embedding, sparse_embedding = await asyncio.gather(
+                dense_task, sparse_task
             )
+
+            # TEMPORARY DEV ONLY
+            hybrid = True
+            if hybrid:
+                search_results = await self.vector_db.hybrid_search(
+                    collection_name, dense_embedding[0], sparse_embedding[0]
+                )
+            else:
+                search_results = await self.vector_db.search(
+                    collection_name, dense_embedding[0]
+                )
+
             timing["search_time"] = f"{time.perf_counter() - search_start:.2f}s"
 
             chunks = []

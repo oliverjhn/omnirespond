@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
+
 def log_timing(func):
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
@@ -16,11 +17,15 @@ def log_timing(func):
         try:
             result = await func(*args, **kwargs)
             elapsed = time.perf_counter() - start
-            logger.info(f"{BOLD}{func.__name__}{RESET} took {BOLD}{elapsed:.2f}s{RESET}")
+            logger.info(
+                f"{BOLD}{func.__name__}{RESET} took {BOLD}{elapsed:.2f}s{RESET}"
+            )
             return result
         except Exception as e:
             elapsed = time.perf_counter() - start
-            logger.error(f"{BOLD}{func.__name__}{RESET} failed after {BOLD}{elapsed:.2f}s{RESET}: {str(e)}")
+            logger.error(
+                f"{BOLD}{func.__name__}{RESET} failed after {BOLD}{elapsed:.2f}s{RESET}: {str(e)}"
+            )
             raise
 
     @wraps(func)
@@ -29,14 +34,19 @@ def log_timing(func):
         try:
             result = func(*args, **kwargs)
             elapsed = time.perf_counter() - start
-            logger.info(f"{BOLD}{func.__name__}{RESET} took {BOLD}{elapsed:.2f}s{RESET}")
+            logger.info(
+                f"{BOLD}{func.__name__}{RESET} took {BOLD}{elapsed:.2f}s{RESET}"
+            )
             return result
         except Exception as e:
             elapsed = time.perf_counter() - start
-            logger.error(f"{BOLD}{func.__name__}{RESET} failed after {BOLD}{elapsed:.2f}s{RESET}: {str(e)}")
+            logger.error(
+                f"{BOLD}{func.__name__}{RESET} failed after {BOLD}{elapsed:.2f}s{RESET}: {str(e)}"
+            )
             raise
 
     return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+
 
 class BaseService:
     def __init__(self):

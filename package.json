@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "devDependencies": {
+    "turbo": "^2.4.2"
+  },
+  "scripts": {
+    "dev": "turbo run dev"
+  }
+}

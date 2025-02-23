@@ -73,5 +73,4 @@ async def query_documents(
     return QueryResponse(
         response=result["response"],
         relevant_chunks=result["relevant_chunks"],
-        timing=result["timing"],
     )

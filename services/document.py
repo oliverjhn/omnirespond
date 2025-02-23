@@ -5,7 +5,6 @@ from .vector_db import VectorDBService
 from .embeddings import EmbeddingService, SparseEmbeddingService
 from .llm import LLMService
 from .extractors import ExtractorService
-import time
 import asyncio
 
 
@@ -83,51 +82,41 @@ class DocumentService(BaseService):
     @log_timing
     async def process_query(self, query: str, collection_name: str) -> Dict:
         try:
-            timing = {}
-
-            # Search timing
-            search_start = time.perf_counter()
+            # Generate dense and sparse embeddings for query
             dense_task = self.embedder.embed_chunks([query])
             sparse_task = self.sparse_embedder.sparse_embed_chunks([query])
             dense_embedding, sparse_embedding = await asyncio.gather(
                 dense_task, sparse_task
             )
 
-            # TEMPORARY DEV ONLY
-            hybrid = True
-            if hybrid:
-                search_results = await self.vector_db.hybrid_search(
-                    collection_name, dense_embedding[0], sparse_embedding[0]
-                )
-            else:
-                search_results = await self.vector_db.search(
-                    collection_name, dense_embedding[0]
-                )
+            search_results = await self.vector_db.hybrid_search(
+                collection_name, query, dense_embedding[0], sparse_embedding[0]
+            )
 
-            timing["search_time"] = f"{time.perf_counter() - search_start:.2f}s"
-
-            chunks = []
+            # Retrieve chunks and prepare for reranking
+            documents = []
             for result in search_results:
                 chunk_text = await self.storage.get_chunk_json(
                     result["document_key"], result["chunk_index"]
                 )
-                chunks.append(
+                documents.append(
                     {
-                        "score": result["score"],
                         "text": chunk_text,
                         "metadata": result["metadata"],
                     }
                 )
 
-            # LLM timing
-            llm_start = time.perf_counter()
-            context = "\n".join(chunk["text"] for chunk in chunks)
-            response = await self.llm.generate_response(query, context)
-            timing["llm_time"] = f"{time.perf_counter() - llm_start:.2f}s"
+            # Rerank with actual chunk text
+            reranked_results = await self.llm.rerank_documents(query, documents, 5)
 
-            timing["total_time"] = f"{time.perf_counter() - search_start:.2f}s"
+            context = "\n".join(chunk["text"] for chunk in reranked_results)
+            response = await self.llm.generate_openai_response(query, context)
+            # response = await self.llm.generate_gemini_response(query, context)
 
-            return {"response": response, "relevant_chunks": chunks, "timing": timing}
+            return {
+                "response": response,
+                "relevant_chunks": reranked_results,
+            }
         except Exception as e:
             self.logger.error(f"Query processing failed: {str(e)}")
             raise

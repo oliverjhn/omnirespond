@@ -34,4 +34,3 @@ class TimingInfo(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     relevant_chunks: List[Dict]
-    timing: TimingInfo

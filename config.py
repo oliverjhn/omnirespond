@@ -10,8 +10,13 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_MODEL_NAME: str = "gpt-4o-mini"
 
-    # Google Configuration
-    GOOGLE_API_KEY: str
+    # Gemini Configuration
+    GEMINI_API_KEY: str
+    GEMINI_MODEL_NAME: str = "gemini-2.0-flash"
+
+    # Cohere Configuration
+    COHERE_API_KEY: str
+    COHERE_MODEL_NAME: str = "command-r-plus"
 
     # Cloudflare R2 Configuration
     R2_ENDPOINT_URL: str
@@ -60,14 +65,17 @@ QDRANT_URL = settings.QDRANT_URL
 QDRANT_API_KEY = settings.QDRANT_API_KEY
 DEFAULT_COLLECTION = settings.DEFAULT_COLLECTION
 DEFAULT_EMBEDDING_MODEL = settings.DEFAULT_EMBEDDING_MODEL
-GOOGLE_API_KEY = settings.GOOGLE_API_KEY
+GEMINI_API_KEY = settings.GEMINI_API_KEY
+GEMINI_MODEL_NAME = settings.GEMINI_MODEL_NAME
+COHERE_API_KEY = settings.COHERE_API_KEY
 
 
 # Validate required settings
 def validate_settings():
     required_settings = [
         ("OPENAI_API_KEY", OPENAI_API_KEY),
-        ("GOOGLE_API_KEY", GOOGLE_API_KEY),
+        ("GEMINI_API_KEY", GEMINI_API_KEY),
+        ("COHERE_API_KEY", COHERE_API_KEY),
         ("R2_ENDPOINT_URL", R2_ENDPOINT_URL),
         ("R2_ACCESS_KEY", R2_ACCESS_KEY),
         ("R2_SECRET_KEY", R2_SECRET_KEY),

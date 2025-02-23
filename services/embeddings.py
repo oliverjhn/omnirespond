@@ -41,22 +41,16 @@ class SparseEmbeddingService(BaseService):
 
     @log_timing
     async def sparse_embed_chunks(
-        self, chunks: List[str], model_name: str = None
+        self, chunks: List[str], model_name: str = "Qdrant/bm25"
     ) -> List[Dict[str, List[float]]]:
         """Generate sparse embeddings in a Qdrant-compatible format
         Returns:
-            List of dicts with 'indices' and 'values' keys, where:
-            - indices: List[int] - positions of non-zero elements
-            - values: List[float] - values at those positions
+            List of dicts with 'indices' and 'values' keys
         """
         try:
-            print("generating sparse embeddings")
-            # model_name = model_name or "prithivida/Splade_PP_en_v1"
-            model_name = model_name or "Qdrant/bm25"
             sparse_model = SparseTextEmbedding(model_name=model_name)
             sparse_embeddings = list(sparse_model.embed(chunks))
 
-            # Convert SparseEmbedding objects to Qdrant-compatible format
             return [
                 {
                     "indices": embedding.indices.tolist(),

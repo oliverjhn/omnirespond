@@ -13,6 +13,7 @@ from .base import log_timing
 class VectorDBService(BaseService):
     def __init__(self, settings):
         super().__init__()
+        self.settings = settings  # Store settings as instance variable
         self.client = QdrantClient(
             url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY
         )
@@ -117,12 +118,15 @@ class VectorDBService(BaseService):
     async def hybrid_search(
         self,
         collection_name: str,
+        query: str,
         query_vector: np.ndarray,
         sparse_vector: Dict[str, List[float]],
+        rerank_top_k: int = 100,
         dense_limit: int = 5,
-        sparse_limit: int = 5,
+        sparse_limit: int = 2,
     ) -> List[Dict]:
         try:
+            # Get initial results using hybrid search
             response = self.client.query_points(
                 collection_name=collection_name,
                 prefetch=[
@@ -143,22 +147,24 @@ class VectorDBService(BaseService):
                 query=models.FusionQuery(fusion=models.Fusion.RRF),
             )
 
-            # Extract points from the QueryResponse object
             results = response.points
+            documents = []
+            for hit in results:
+                documents.append(
+                    {
+                        "score": hit.score,
+                        "document_key": hit.payload["document_key"],
+                        "chunk_index": hit.payload["chunk_index"],
+                        "metadata": {
+                            k: v
+                            for k, v in hit.payload.items()
+                            if k not in ["document_key", "chunk_index"]
+                        },
+                    }
+                )
 
-            return [
-                {
-                    "score": hit.score,
-                    "document_key": hit.payload["document_key"],
-                    "chunk_index": hit.payload["chunk_index"],
-                    "metadata": {
-                        k: v
-                        for k, v in hit.payload.items()
-                        if k not in ["document_key", "chunk_index"]
-                    },
-                }
-                for hit in results
-            ]
+            return documents
+
         except Exception as e:
             self.logger.error(f"Hybrid search failed: {str(e)}")
             raise

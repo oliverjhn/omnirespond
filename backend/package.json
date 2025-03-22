@@ -1,6 +1,6 @@
 {
   "name": "backend",
   "scripts": {
-    "dev": "uvicorn main:app --reload"
+    "dev": "uvicorn app:app --reload"
   }
 }

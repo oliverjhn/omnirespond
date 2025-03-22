@@ -4,12 +4,11 @@ import tempfile
 import os
 from io import BytesIO
 import pypdf
-import pymupdf4llm
 from .base import BaseService
 from .types import DocumentChunk
 from .base import log_timing
 from google import genai
-import pypdfium2 as pdfium
+# import pypdfium2 as pdfium
 
 
 class TextExtractor(ABC):
@@ -46,7 +45,7 @@ class GeminiPDFExtractor(TextExtractor):
         self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
     def process(self, content: bytes, filename: str = None) -> List[DocumentChunk]:
-        num_pages = len(pdfium.PdfDocument(content))
+        # num_pages = len(pdfium.PdfDocument(content))
         pass
 
 
@@ -78,29 +77,6 @@ class UnstructuredPDFExtractor(TextExtractor):
             os.unlink(temp_file_path)
 
 
-class StandardPDFExtractor(TextExtractor):
-    def __init__(self, chunk_size: int = 256, overlap: int = 32):
-        self.chunk_size = chunk_size
-        self.overlap = overlap
-
-    def process(self, content: bytes, filename: str = None) -> List[DocumentChunk]:
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as temp_pdf:
-                temp_pdf.write(content)
-                temp_pdf.flush()
-                text = pymupdf4llm.to_markdown(temp_pdf.name)
-
-            words = text.split()
-            chunks = []
-            for i in range(0, len(words), self.chunk_size - self.overlap):
-                chunk_text = " ".join(words[i : i + self.chunk_size])
-                chunks.append(DocumentChunk(text=chunk_text))
-            return chunks
-
-        except Exception:
-            raise
-
-
 class PlainTextExtractor(TextExtractor):
     def __init__(self, chunk_size: int = 256, overlap: int = 32):
         self.chunk_size = chunk_size
@@ -126,9 +102,7 @@ class ExtractorService(BaseService):
 
     def set_extractor(self, extension: str, extractor_type: str):
         if extension == ".pdf":
-            if extractor_type == "standard":
-                self.extractors[".pdf"] = StandardPDFExtractor()
-            elif extractor_type == "unstructured":
+            if extractor_type == "unstructured":
                 self.extractors[".pdf"] = UnstructuredPDFExtractor()
             elif extractor_type == "pypdf":
                 self.extractors[".pdf"] = PyPDFExtractor()

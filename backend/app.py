@@ -2,8 +2,7 @@ import datetime
 import time
 import logging
 from fastapi import FastAPI, File, UploadFile, Form, Depends
-from typing import List, Optional, Dict
-from schemas import UploadRequest, UploadResponse, QueryRequest, QueryResponse
+from schemas import UploadResponse, QueryRequest, QueryResponse
 from config import get_settings
 from services import (
     DocumentService,
@@ -14,7 +13,6 @@ from services import (
     ExtractorService,
 )
 
-# Add this near the top of app.py, before creating the FastAPI app
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -44,7 +42,7 @@ async def upload_file(
     start_time = time.perf_counter()
     content = await file.read()
 
-    if extractor_type in ["standard", "unstructured", "pypdf"]:
+    if extractor_type in ["unstructured", "pypdf"]:
         service.extractor.set_extractor(".pdf", extractor_type)
 
     result = await service.process_document(

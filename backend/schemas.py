@@ -8,7 +8,7 @@ class UploadRequest(BaseModel):
     )
     extractor_type: str = Field(
         default="pypdf",
-        description="Type of extractor to use: pypdf, standard, or unstructured",
+        description="Type of extractor to use: pypdf or unstructured",
     )
 
 

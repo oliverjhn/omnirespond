@@ -5,7 +5,7 @@
     "backend"
   ],
   "devDependencies": {
-    "turbo": "^2.4.2"
+    "turbo": "^2.4.4"
   },
   "packageManager": "npm@10.2.4",
   "scripts": {

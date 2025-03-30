@@ -1,7 +1,11 @@
 import datetime
 import time
 import logging
-from fastapi import FastAPI, File, UploadFile, Form, Depends
+from fastapi import FastAPI, File, UploadFile, Form, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.responses import JSONResponse
 from schemas import UploadResponse, QueryRequest, QueryResponse
 from config import get_settings
 from services import (
@@ -16,11 +20,66 @@ from services import (
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",  # Simplified timestamp format
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 settings = get_settings()
-app = FastAPI()
+app = FastAPI(
+    title="OmniRespond API",
+    description="API for document processing and RAG-based querying",
+    version="1.0.0",
+    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
+    redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
+)
+
+
+# Security headers middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+        return response
+
+
+# Configure security middleware
+app.add_middleware(SecurityHeadersMiddleware)
+if settings.ENVIRONMENT == "production":
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[".yourdomain.com"],  # Replace with your actual domain
+    )
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+# File size limit middleware
+class FileSizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "POST" and "upload" in request.url.path:
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > settings.MAX_UPLOAD_SIZE:
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE // (1024 * 1024)}MB"
+                    },
+                )
+        return await call_next(request)
+
+
+app.add_middleware(FileSizeLimitMiddleware)
 
 
 def get_services(settings=Depends(get_settings)):

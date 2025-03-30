@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from functools import lru_cache
@@ -30,6 +30,9 @@ class Settings(BaseSettings):
 
     # API Configuration
     DEFAULT_COLLECTION: str = "unsorted"
+    ENVIRONMENT: str = "development"
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024  # 50MB in bytes
 
     # Embedding Model Configuration
     DEFAULT_EMBEDDING_MODEL: str = "text-embedding-3-small"
@@ -40,6 +43,13 @@ class Settings(BaseSettings):
     def validate_qdrant_url(cls, v):
         if not v.startswith(("http://", "https://")):
             raise ValueError("QDRANT_URL must start with http:// or https://")
+        return v
+
+    @field_validator("ALLOWED_ORIGINS")
+    def validate_allowed_origins(cls, v, values):
+        env = values.data.get("ENVIRONMENT", "development")
+        if env == "production" and "*" in v:
+            raise ValueError("Wildcard (*) origin is not allowed in production")
         return v
 
 
@@ -68,6 +78,9 @@ DEFAULT_EMBEDDING_MODEL = settings.DEFAULT_EMBEDDING_MODEL
 GEMINI_API_KEY = settings.GEMINI_API_KEY
 GEMINI_MODEL_NAME = settings.GEMINI_MODEL_NAME
 COHERE_API_KEY = settings.COHERE_API_KEY
+ENVIRONMENT = settings.ENVIRONMENT
+ALLOWED_ORIGINS = settings.ALLOWED_ORIGINS
+MAX_UPLOAD_SIZE = settings.MAX_UPLOAD_SIZE
 
 
 # Validate required settings

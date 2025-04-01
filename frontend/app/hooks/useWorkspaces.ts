@@ -1,0 +1,112 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createWorkspace,
+  deleteWorkspace,
+  getWorkspaces,
+  updateWorkspace,
+} from "../api/workspaces";
+import { useWorkspaceStore } from "../stores/workspaceStore";
+import type { Workspace } from "../types/workspace";
+import { supabase } from "../lib/supabase";
+import React from "react";
+
+type UpdateWorkspaceParams = {
+  id: string;
+  data: Partial<Pick<Workspace, "name" | "description">>;
+};
+
+export const useWorkspaces = () => {
+  const queryClient = useQueryClient();
+  const { setWorkspaces } = useWorkspaceStore();
+
+  const workspacesQuery = useQuery({
+    queryKey: ["workspaces"] as const,
+    queryFn: getWorkspaces,
+    staleTime: 1000 * 60, // 1 minute
+  });
+
+  // Set up real-time subscription
+  React.useEffect(() => {
+    console.log("🔄 Setting up Supabase real-time subscription...");
+    const channel = supabase
+      .channel("workspaces_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "workspaces",
+        },
+        (payload) => {
+          console.log("🔔 Supabase real-time update:", payload);
+          // Invalidate and refetch workspaces when any change occurs
+          queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("🔄 Cleaning up Supabase subscription...");
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  // Update Zustand store when query data changes
+  React.useEffect(() => {
+    if (workspacesQuery.data) {
+      console.log(
+        "💾 Updating Zustand store with workspaces:",
+        workspacesQuery.data
+      );
+      setWorkspaces(workspacesQuery.data);
+    }
+  }, [workspacesQuery.data, setWorkspaces]);
+
+  const createWorkspaceMutation = useMutation({
+    mutationFn: (data: Pick<Workspace, "name" | "description">) =>
+      createWorkspace(data),
+    onSuccess: (data: Workspace) => {
+      console.log("✨ Created new workspace:", data);
+      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+    },
+    onError: (error: Error) => {
+      console.error("❌ Error creating workspace:", error);
+    },
+  });
+
+  const updateWorkspaceMutation = useMutation({
+    mutationFn: ({ id, data }: UpdateWorkspaceParams) =>
+      updateWorkspace(id, data),
+    onSuccess: (data: Workspace) => {
+      console.log("✨ Updated workspace:", data);
+      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+    },
+    onError: (error: Error) => {
+      console.error("❌ Error updating workspace:", error);
+    },
+  });
+
+  const deleteWorkspaceMutation = useMutation({
+    mutationFn: (id: string) => deleteWorkspace(id),
+    onSuccess: () => {
+      console.log("🚮 Deleted workspace");
+      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+    },
+    onError: (error: Error) => {
+      console.error("❌ Error deleting workspace:", error);
+    },
+  });
+
+  return {
+    workspaces: workspacesQuery.data ?? [],
+    isLoading: workspacesQuery.isLoading,
+    isError: workspacesQuery.isError,
+    error: workspacesQuery.error,
+    createWorkspace: createWorkspaceMutation.mutate,
+    updateWorkspace: updateWorkspaceMutation.mutate,
+    deleteWorkspace: deleteWorkspaceMutation.mutate,
+    isCreating: createWorkspaceMutation.isPending,
+    isUpdating: updateWorkspaceMutation.isPending,
+    isDeleting: deleteWorkspaceMutation.isPending,
+  };
+};

@@ -5,13 +5,14 @@ import { Send } from "lucide-react";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { Sidebar } from "~/components/Sidebar";
+import { ChatSidebar } from "~/components/ChatSidebar";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
 };
 
-export function meta({ }: Route.MetaArgs) {
+export function meta({}: Route.MetaArgs) {
   return [
     { title: "Omnirespond" },
     { name: "description", content: "RAG-based AI Document Assistant" },
@@ -42,35 +43,38 @@ export default function Home() {
     if (!input.trim() || isLoading) return;
 
     const userMessage = { role: "user" as const, content: input.trim() };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [...messages, userMessage].map(({ role, content }) => ({
-            role,
-            content,
-          })),
-        }),
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [...messages, userMessage].map(({ role, content }) => ({
+              role,
+              content,
+            })),
+          }),
+        }
+      );
 
       const data = await response.json();
       const assistantMessage = {
         role: "assistant" as const,
         content: data.choices[0].message.content,
       };
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Error:", error);
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
@@ -84,6 +88,12 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen relative">
+      <div className="w-8">
+        <Sidebar />
+      </div>
+      <div className="w-64">
+        <ChatSidebar />
+      </div>
       <div className="flex-1 p-4">
         <div className="max-w-3xl mx-auto">
           <div className="mb-20 space-y-4">
@@ -117,7 +127,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-      <Sidebar />
     </div>
   );
 }

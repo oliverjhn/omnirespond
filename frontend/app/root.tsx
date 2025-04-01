@@ -8,7 +8,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import { ThemeProvider } from "./components/theme-provider";
+import { Providers } from "./components/providers";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -34,9 +34,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="min-h-screen bg-background text-foreground">
-        <ThemeProvider defaultTheme="light">
+        <Providers>
           {children}
-        </ThemeProvider>
+        </Providers>
         <ScrollRestoration />
         <Scripts />
       </body>

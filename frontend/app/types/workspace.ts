@@ -1,8 +1,7 @@
-export interface Document {
+export interface Source {
   id: string;
   name: string;
   type: string;
-  size: number;
   uploadedAt: string;
   status: 'processing' | 'ready' | 'error';
 }
@@ -30,8 +29,8 @@ export interface Workspace {
   id: string;
   name: string;
   description?: string;
-  createdAt: string;
-  updatedAt: string;
-  documents: Document[];
+  created_at: string;
+  updated_at: string;
+  sources: Source[];
   chats: Chat[];
 }

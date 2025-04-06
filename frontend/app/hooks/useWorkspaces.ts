@@ -102,7 +102,7 @@ export const useWorkspaces = () => {
     isLoading: workspacesQuery.isLoading,
     isError: workspacesQuery.isError,
     error: workspacesQuery.error,
-    createWorkspace: createWorkspaceMutation.mutate,
+    createWorkspace: createWorkspaceMutation.mutateAsync,
     updateWorkspace: updateWorkspaceMutation.mutate,
     deleteWorkspace: deleteWorkspaceMutation.mutate,
     isCreating: createWorkspaceMutation.isPending,

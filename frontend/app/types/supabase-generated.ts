@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          operationName?: string
-          query?: string
-          variables?: Json
-          extensions?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       chats: {
@@ -70,23 +45,23 @@ export type Database = {
         Row: {
           chat_id: string
           content: string
+          created_at: string
           id: string
           role: string
-          timestamp: string
         }
         Insert: {
           chat_id: string
           content: string
+          created_at?: string
           id?: string
           role: string
-          timestamp?: string
         }
         Update: {
           chat_id?: string
           content?: string
+          created_at?: string
           id?: string
           role?: string
-          timestamp?: string
         }
         Relationships: [
           {
@@ -137,7 +112,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -145,7 +120,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -153,7 +128,7 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

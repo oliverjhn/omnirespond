@@ -1,6 +1,6 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ThemeProvider } from "./theme-provider"
-import type { ReactNode } from "react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "./theme-provider";
+import type { ReactNode } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -9,14 +9,12 @@ const queryClient = new QueryClient({
       retry: 1,
     },
   },
-})
+});
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark">
-        {children}
-      </ThemeProvider>
+      <ThemeProvider defaultTheme="light">{children}</ThemeProvider>
     </QueryClientProvider>
-  )
+  );
 }

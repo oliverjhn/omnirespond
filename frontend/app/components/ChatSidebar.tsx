@@ -4,14 +4,14 @@ import {
   SidebarProvider,
   SidebarContent,
 } from "~/components/ui/sidebar";
-import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { MessageSquare, ChevronsUpDown, Plus } from "lucide-react";
 import { useWorkspaces } from "~/hooks/useWorkspaces";
-import { useWorkspaceStore } from "~/stores/workspaceStore";
 import { cn } from "~/lib/utils";
 import * as React from "react";
-import type { Workspace } from "~/types/workspace";
+// import type { Workspace } from "~/types/workspace";
+import type { Workspace } from "~/types/db";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import {
   Command,
@@ -27,6 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
+import { useNavigate, useParams, Link } from "react-router";
 
 type Chat = {
   id: string;
@@ -36,14 +37,30 @@ type Chat = {
 export function ChatSidebar() {
   const [open, setOpen] = React.useState(false);
   const { workspaces, isLoading, createWorkspace } = useWorkspaces();
-  const { selectedWorkspaceId, setSelectedWorkspaceId } = useWorkspaceStore();
+  const params = useParams();
+  const workspaceId = params.workspaceId;
+  const navigate = useNavigate();
 
-  // Set initial workspace when data loads
-  React.useEffect(() => {
-    if (workspaces.length > 0 && !selectedWorkspaceId) {
-      setSelectedWorkspaceId(workspaces[0].id);
+  const handleCreateWorkspace = async (data: {
+    name: string;
+    description: string;
+  }) => {
+    try {
+      const newWorkspace = await createWorkspace(data);
+      // Navigate to the new workspace route
+      navigate(`/workspaces/${newWorkspace.id}`);
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to create workspace:", error);
     }
-  }, [workspaces, selectedWorkspaceId, setSelectedWorkspaceId]);
+  };
+
+  // Handle case when no workspace is selected but workspaces are available
+  React.useEffect(() => {
+    if (workspaces.length > 0 && !workspaceId) {
+      navigate(`/workspaces/${workspaces[0].id}`);
+    }
+  }, [workspaces, workspaceId, navigate]);
 
   // TODO: Replace with actual chat data
   const chats: Chat[] = [];
@@ -69,7 +86,7 @@ export function ChatSidebar() {
                     {isLoading
                       ? "Loading..."
                       : workspaces.find(
-                          (workspace) => workspace.id === selectedWorkspaceId
+                          (workspace) => workspace.id === workspaceId
                         )?.name || "Select workspace..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0" />
                   </Button>
@@ -77,7 +94,7 @@ export function ChatSidebar() {
                 <PopoverContent className="w-full p-0">
                   <Command
                     filter={(value, search) => {
-                      if (value.includes("eightysixrocks")) return 0;
+                      if (value.includes("eightysixrocks!")) return 0;
                       const normalizedValue = value.toLowerCase();
                       const normalizedSearch = search.toLowerCase();
                       return normalizedValue.includes(normalizedSearch) ? 1 : 0;
@@ -86,26 +103,33 @@ export function ChatSidebar() {
                     <CommandInput placeholder="Search workspace..." />
                     <CommandList>
                       <CommandEmpty>No workspace found.</CommandEmpty>
-                      <CommandGroup heading="Workspaces">
-                        {workspaces
-                          .sort(
-                            (a, b) =>
-                              new Date(b.updated_at).getTime() -
-                              new Date(a.updated_at).getTime()
-                          )
-                          .map((workspace: Workspace) => (
-                            <CommandItem
-                              key={workspace.id}
-                              value={workspace.name}
-                              onSelect={() => {
-                                setSelectedWorkspaceId(workspace.id);
-                                setOpen(false);
-                              }}
-                            >
-                              {workspace.name}
-                            </CommandItem>
-                          ))}
-                      </CommandGroup>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        <CommandGroup heading="Workspaces">
+                          {workspaces
+                            .sort(
+                              (a, b) =>
+                                new Date(b.updated_at).getTime() -
+                                new Date(a.updated_at).getTime()
+                            )
+                            .map((workspace: Workspace) => (
+                              <CommandItem
+                                key={workspace.id}
+                                value={workspace.name}
+                                onSelect={() => {
+                                  setOpen(false);
+                                }}
+                                className="p-0"
+                              >
+                                <Link 
+                                  to={`/workspaces/${workspace.id}`}
+                                  className="flex w-full h-full items-center px-[8px] py-[6px]"
+                                >
+                                  {workspace.name}
+                                </Link>
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </div>
                       <CommandSeparator />
                       <CommandGroup heading="Actions">
                         <CommandItem
@@ -113,7 +137,7 @@ export function ChatSidebar() {
                           onSelect={() => null}
                         >
                           <CreateWorkspaceDialog
-                            onCreateWorkspace={createWorkspace}
+                            onCreateWorkspace={handleCreateWorkspace}
                             isLoading={isLoading}
                           />
                         </CommandItem>
@@ -140,6 +164,11 @@ export function ChatSidebar() {
                   key={chat.id}
                   variant="ghost"
                   className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (workspaceId) {
+                      navigate(`/workspaces/${workspaceId}/chat/${chat.id}`);
+                    }
+                  }}
                 >
                   <MessageSquare className="h-4 w-4" />
                   {chat.title}

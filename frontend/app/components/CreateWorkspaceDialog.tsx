@@ -38,7 +38,7 @@ export function CreateWorkspaceDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <div className="flex items-center">
+        <div className="flex items-center w-full h-full">
           <Plus className="mr-2 h-4 w-4" />
           New Workspace
         </div>

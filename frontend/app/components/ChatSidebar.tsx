@@ -11,7 +11,7 @@ import { useWorkspaces } from "~/hooks/useWorkspaces";
 import { cn } from "~/lib/utils";
 import * as React from "react";
 // import type { Workspace } from "~/types/workspace";
-import type { Workspace } from "~/types/db";
+import type { Workspace, Chat } from "~/types/db";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import {
   Command,
@@ -29,14 +29,14 @@ import {
 } from "~/components/ui/popover";
 import { useNavigate, useParams, Link } from "react-router";
 
-type Chat = {
-  id: string;
-  title: string;
-};
+interface ChatSidebarProps {
+  chats: Chat[];
+  workspaces: Workspace[];
+}
 
-export function ChatSidebar() {
+export function ChatSidebar({ chats, workspaces }: ChatSidebarProps) {
   const [open, setOpen] = React.useState(false);
-  const { workspaces, isLoading, createWorkspace } = useWorkspaces();
+  const { isLoading, createWorkspace } = useWorkspaces();
   const params = useParams();
   const workspaceId = params.workspaceId;
   const navigate = useNavigate();
@@ -61,9 +61,6 @@ export function ChatSidebar() {
       navigate(`/workspaces/${workspaces[0].id}`);
     }
   }, [workspaces, workspaceId, navigate]);
-
-  // TODO: Replace with actual chat data
-  const chats: Chat[] = [];
 
   return (
     <SidebarProvider>
@@ -120,7 +117,7 @@ export function ChatSidebar() {
                                 }}
                                 className="p-0"
                               >
-                                <Link 
+                                <Link
                                   to={`/workspaces/${workspace.id}`}
                                   className="flex w-full h-full items-center px-[8px] py-[6px]"
                                 >
@@ -164,14 +161,15 @@ export function ChatSidebar() {
                   key={chat.id}
                   variant="ghost"
                   className="w-full justify-start gap-2"
-                  onClick={() => {
-                    if (workspaceId) {
-                      navigate(`/workspaces/${workspaceId}/chat/${chat.id}`);
-                    }
-                  }}
+                  asChild
                 >
-                  <MessageSquare className="h-4 w-4" />
-                  {chat.title}
+                  <Link
+                    to={`/workspaces/${workspaceId}/chat/${chat.id}`}
+                    className="flex items-center"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {chat.name}
+                  </Link>
                 </Button>
               ))}
               {chats.length === 0 && (

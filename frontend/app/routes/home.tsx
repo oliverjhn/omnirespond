@@ -91,9 +91,7 @@ export default function Home() {
       <div className="w-8">
         <Sidebar />
       </div>
-      <div className="w-64">
-        <ChatSidebar />
-      </div>
+      <div className="w-64"></div>
       <div className="flex-1 p-4">
         <div className="max-w-3xl mx-auto">
           <div className="mb-20 space-y-4">

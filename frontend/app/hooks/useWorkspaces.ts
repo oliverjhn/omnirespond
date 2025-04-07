@@ -5,8 +5,7 @@ import {
   getWorkspaces,
   updateWorkspace,
 } from "../api/workspaces";
-import { useWorkspaceStore } from "../stores/workspaceStore";
-import type { Workspace } from "../types/workspace";
+import type { Workspace } from "../types/db";
 import { supabase } from "../lib/supabase";
 import React from "react";
 
@@ -17,7 +16,6 @@ type UpdateWorkspaceParams = {
 
 export const useWorkspaces = () => {
   const queryClient = useQueryClient();
-  const { setWorkspaces } = useWorkspaceStore();
 
   const workspacesQuery = useQuery({
     queryKey: ["workspaces"] as const,
@@ -51,16 +49,6 @@ export const useWorkspaces = () => {
     };
   }, [queryClient]);
 
-  // Update Zustand store when query data changes
-  React.useEffect(() => {
-    if (workspacesQuery.data) {
-      console.log(
-        "💾 Updating Zustand store with workspaces:",
-        workspacesQuery.data
-      );
-      setWorkspaces(workspacesQuery.data);
-    }
-  }, [workspacesQuery.data, setWorkspaces]);
 
   const createWorkspaceMutation = useMutation({
     mutationFn: (data: Pick<Workspace, "name" | "description">) =>

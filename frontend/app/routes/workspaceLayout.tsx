@@ -1,28 +1,45 @@
 import { Outlet } from "react-router";
 import { ChatSidebar } from "~/components/ChatSidebar";
 import type { Route } from "../+types/root";
-import type { Workspace } from "~/types/db";
-import { getWorkspace } from "~/api/workspaces";
+import type { Workspace, Chat } from "~/types/db";
+import { getWorkspace, getWorkspaces } from "~/api/workspaces";
 import { Sidebar } from "~/components/Sidebar";
+import { getChats } from "~/api/chats";
 
-export async function loader({
-  params,
-}: Route.LoaderArgs): Promise<{ currentWorkspace: Workspace }> {
+export async function loader({ params }: Route.LoaderArgs): Promise<{
+  currentWorkspace: Workspace;
+  workspaceChats: Chat[];
+  allWorkspaces: Workspace[];
+}> {
   const { workspaceId } = params;
   // implement auth here later
 
   if (!workspaceId) {
     throw new Error("Workspace ID is required");
   }
-  const currentWorkspace = await getWorkspace(workspaceId);
+  const [currentWorkspace, allWorkspaces, workspaceChats] = await Promise.all([
+    getWorkspace(workspaceId),
+    getWorkspaces(),
+    getChats(workspaceId),
+  ]);
+
   if (!currentWorkspace) {
     throw new Response("Workspace not found", { status: 404 });
   }
-  return { currentWorkspace };
+  if (!workspaceChats) {
+    throw new Response("Chats not found", { status: 404 });
+  }
+  if (!allWorkspaces) {
+    throw new Response("Workspaces not found", { status: 404 });
+  }
+
+  return { currentWorkspace, workspaceChats, allWorkspaces };
 }
 
 type LoaderData = {
   currentWorkspace: Workspace;
+  workspaceChats: Chat[];
+  allWorkspaces: Workspace[];
 };
 
 export default function WorkspaceLayout({
@@ -30,23 +47,18 @@ export default function WorkspaceLayout({
 }: {
   loaderData: LoaderData;
 }) {
-  const { currentWorkspace } = loaderData;
+  const { currentWorkspace, workspaceChats, allWorkspaces } = loaderData;
 
   return (
     <div className="flex h-screen">
-      {/* Main layout container */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left navigation area with auto widths */}
         <div className="flex">
-          {/* The Sidebar component will take its natural width */}
           <Sidebar />
-          {/* The ChatSidebar will take its natural width with a border */}
           <div>
-            <ChatSidebar />
+            <ChatSidebar chats={workspaceChats} workspaces={allWorkspaces} />
           </div>
         </div>
 
-        {/* Content area that takes remaining space */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <h1 className="text-2xl font-bold p-4">{currentWorkspace.name}</h1>
           <div className="flex-1 overflow-auto">

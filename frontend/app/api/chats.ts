@@ -56,3 +56,28 @@ export const deleteChat = async (id: string): Promise<void> => {
     console.error("Error in deleteChat:", error);
   }
 };
+
+// Add function to fetch a single chat by workspace and id
+export const getChat = async (
+  workspaceId: string,
+  chatId: string
+): Promise<Chat | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("chats")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("id", chatId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching chat:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getChat:", error);
+    return null;
+  }
+};

@@ -4,13 +4,14 @@ import type { Chat } from "~/types/db";
 import { supabase } from "~/lib/supabase";
 import React from "react";
 
-export function useChats(workspaceId: string) {
+export function useChats(workspaceId: string, initialChats: Chat[] = []) {
   const queryClient = useQueryClient();
 
   const chatsQuery = useQuery({
     queryKey: ["chats", workspaceId] as const,
     queryFn: () => getChats(workspaceId),
     staleTime: 1000 * 60, // 1 minute
+    initialData: initialChats,
   });
 
   // Set up real-time subscription

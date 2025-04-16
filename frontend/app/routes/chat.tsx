@@ -1,6 +1,7 @@
 import type { Route } from "./+types/chat";
 import type { Message } from "~/types/db";
 import { getMessages, createMessage } from "~/api/messages";
+import { getChat } from "~/api/chats";
 import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 import { Textarea } from "~/components/ui/textarea";
@@ -12,6 +13,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { redirect, useNavigate } from "react-router";
 
 // Extend Message type to include loading state
 type ExtendedMessage = Message & {
@@ -79,18 +81,29 @@ const sendMessage = async (
 
 export async function loader({
   params,
-}: Route.LoaderArgs): Promise<{ messages: ExtendedMessage[]; chatId: string }> {
-  const { chatId } = params;
+}: Route.LoaderArgs): Promise<{
+  messages: ExtendedMessage[];
+  chatId: string;
+  workspaceId: string;
+  chatNotFound?: boolean;
+}> {
+  const { workspaceId, chatId } = params;
   // implement auth here later
 
+  if (!workspaceId) {
+    throw new Error("Workspace ID is required");
+  }
   if (!chatId) {
     throw new Error("Chat ID is required");
   }
-  const messages = await getMessages(chatId);
-  if (!messages) {
-    throw new Response("Messages not found", { status: 404 });
+  // Handle missing chat: show notification and redirect on client
+  const chat = await getChat(workspaceId, chatId);
+  if (!chat) {
+    return { messages: [], chatId, chatNotFound: true, workspaceId };
   }
-  return { messages, chatId };
+
+  const messages = await getMessages(chatId);
+  return { messages, chatId, workspaceId };
 }
 
 const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
@@ -125,7 +138,23 @@ const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
 };
 
 export default function Chat({ loaderData }: Route.ComponentProps) {
-  const { messages: initialMessages, chatId } = loaderData;
+  const {
+    messages: initialMessages,
+    chatId,
+    chatNotFound,
+    workspaceId,
+  } = loaderData;
+  const navigate = useNavigate();
+  const handledNotFoundRef = useRef(false);
+
+  useEffect(() => {
+    if (chatNotFound && !handledNotFoundRef.current) {
+      handledNotFoundRef.current = true;
+      toast.error("Chat does not exist");
+      navigate(`/workspaces/${workspaceId}`);
+    }
+  }, [chatNotFound, navigate, workspaceId]);
+
   const queryClient = useQueryClient();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);

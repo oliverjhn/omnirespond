@@ -45,13 +45,19 @@ interface ChatSidebarProps {
   workspaces: Workspace[];
 }
 
-export function ChatSidebar({ chats, workspaces }: ChatSidebarProps) {
+export function ChatSidebar({
+  chats: initialChats,
+  workspaces,
+}: ChatSidebarProps) {
   const [open, setOpen] = React.useState(false);
   const { isLoading, createWorkspace } = useWorkspaces();
   const params = useParams();
   const workspaceId = params.workspaceId;
   const navigate = useNavigate();
-  const { deleteChat, createChat } = useChats(workspaceId || "");
+  const { chats, deleteChat, createChat } = useChats(
+    workspaceId || "",
+    initialChats
+  );
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [chatIdToDelete, setChatIdToDelete] = React.useState<string | null>(

@@ -34,9 +34,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="min-h-screen bg-background text-foreground">
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
         <ScrollRestoration />
         <Scripts />
       </body>

@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 from .base import BaseService, log_timing
 from .storage import StorageService
 from .vector_db import VectorDBService
@@ -80,7 +80,13 @@ class DocumentService(BaseService):
         return content_types.get(extension, "application/octet-stream")
 
     @log_timing
-    async def process_query(self, query: str, collection_name: str) -> Dict:
+    async def process_query(
+        self,
+        query: str,
+        collection_name: str,
+        conversation: List[Dict[str, str]],
+        model: str = None,
+    ) -> Dict:
         try:
             # Generate dense and sparse embeddings for query
             dense_task = self.embedder.embed_chunks([query])
@@ -110,7 +116,9 @@ class DocumentService(BaseService):
             reranked_results = await self.llm.rerank_documents(query, documents, 5)
 
             context = "\n".join(chunk["text"] for chunk in reranked_results)
-            response = await self.llm.generate_openai_response(query, context)
+            response = await self.llm.generate_openai_response(
+                query, context, conversation, model
+            )
             # response = await self.llm.generate_gemini_response(query, context)
 
             return {

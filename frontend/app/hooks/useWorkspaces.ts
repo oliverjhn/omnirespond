@@ -25,7 +25,6 @@ export const useWorkspaces = () => {
 
   // Set up real-time subscription
   React.useEffect(() => {
-    console.log("🔄 Setting up Supabase real-time subscription...");
     const channel = supabase
       .channel("workspaces_changes")
       .on(
@@ -36,52 +35,45 @@ export const useWorkspaces = () => {
           table: "workspaces",
         },
         (payload) => {
-          console.log("🔔 Supabase real-time update:", payload);
-          // Invalidate and refetch workspaces when any change occurs
           queryClient.invalidateQueries({ queryKey: ["workspaces"] });
         }
       )
       .subscribe();
 
     return () => {
-      console.log("🔄 Cleaning up Supabase subscription...");
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
 
-
   const createWorkspaceMutation = useMutation({
     mutationFn: (data: Pick<Workspace, "name" | "description">) =>
       createWorkspace(data),
-    onSuccess: (data: Workspace) => {
-      console.log("✨ Created new workspace:", data);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
     onError: (error: Error) => {
-      console.error("❌ Error creating workspace:", error);
+      console.error("Error creating workspace:", error);
     },
   });
 
   const updateWorkspaceMutation = useMutation({
     mutationFn: ({ id, data }: UpdateWorkspaceParams) =>
       updateWorkspace(id, data),
-    onSuccess: (data: Workspace) => {
-      console.log("✨ Updated workspace:", data);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
     onError: (error: Error) => {
-      console.error("❌ Error updating workspace:", error);
+      console.error("Error updating workspace:", error);
     },
   });
 
   const deleteWorkspaceMutation = useMutation({
     mutationFn: (id: string) => deleteWorkspace(id),
     onSuccess: () => {
-      console.log("🚮 Deleted workspace");
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
     onError: (error: Error) => {
-      console.error("❌ Error deleting workspace:", error);
+      console.error("Error deleting workspace:", error);
     },
   });
 

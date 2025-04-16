@@ -1,6 +1,6 @@
 import { Outlet } from "react-router";
 import { ChatSidebar } from "~/components/ChatSidebar";
-import type { Route } from "../+types/root";
+import type { Route } from "./+types/workspaceLayout";
 import type { Workspace, Chat } from "~/types/db";
 import { getWorkspace, getWorkspaces } from "~/api/workspaces";
 import { Sidebar } from "~/components/Sidebar";
@@ -36,17 +36,7 @@ export async function loader({ params }: Route.LoaderArgs): Promise<{
   return { currentWorkspace, workspaceChats, allWorkspaces };
 }
 
-type LoaderData = {
-  currentWorkspace: Workspace;
-  workspaceChats: Chat[];
-  allWorkspaces: Workspace[];
-};
-
-export default function WorkspaceLayout({
-  loaderData,
-}: {
-  loaderData: LoaderData;
-}) {
+export default function WorkspaceLayout({ loaderData }: Route.ComponentProps) {
   const { currentWorkspace, workspaceChats, allWorkspaces } = loaderData;
 
   return (

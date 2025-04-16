@@ -1,5 +1,28 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
+from datetime import datetime
+
+
+# class WorkspaceSchema(BaseModel):
+#     id: str
+#     name: str
+#     user_id: str
+#     created_at: Optional[datetime]
+
+
+# class ChatSchema(BaseModel):
+#     id: str
+#     workspace_id: str
+#     name: str
+#     created_at: Optional[datetime]
+
+
+# class MessageSchema(BaseModel):
+#     id: str
+#     chat_id: str
+#     role: str  # 'user' | 'assistant'
+#     content: str
+#     created_at: Optional[datetime]
 
 
 class UploadRequest(BaseModel):
@@ -20,9 +43,21 @@ class UploadResponse(BaseModel):
 
 class QueryRequest(BaseModel):
     query: str = Field(..., description="The query to search for")
+    conversation: List[Dict[str, str]] = Field(
+        ...,
+        description="The complete conversation with the chatbot, including the most recent user message",
+    )
     collection_name: str = Field(
         default="unsorted", description="Collection to search in"
     )
+    model: str = Field(
+        default="gpt-4o-mini",
+        description="Model to use for the query",
+    )
+
+    # @property
+    # def trimmed_conversations(self) -> List[Dict[str, str]]:
+    #     return [{"role": msg.role, "content": msg.content} for msg in self.conversation]
 
 
 class TimingInfo(BaseModel):

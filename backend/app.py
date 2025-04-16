@@ -125,7 +125,12 @@ async def upload_file(
 async def query_documents(
     request: QueryRequest, service: DocumentService = Depends(get_services)
 ):
-    result = await service.process_query(request.query, request.collection_name)
+    result = await service.process_query(
+        request.query,
+        request.collection_name,
+        request.conversation,
+        request.model,
+    )
 
     return QueryResponse(
         response=result["response"],

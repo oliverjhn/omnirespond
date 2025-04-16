@@ -13,27 +13,63 @@ class LLMService(BaseService):
         self.gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.cohere_client = ClientV2(api_key=settings.COHERE_API_KEY)
 
+    def _debug_print_conversation(self, messages: List[Dict[str, str]]) -> None:
+        """Print conversation messages in a readable format for debugging."""
+        print("\n=== Debug: Conversation Flow ===")
+        for idx, msg in enumerate(messages, 1):
+            role = msg.get("role", "unknown").upper()
+            content = msg.get("content", "").replace("\n", "\n\t")
+            print(f"\n{idx}. [{role}]:\n\t{content}")
+        print("\n==============================\n")
+
     @log_timing
     async def generate_openai_response(
-        self, query: str, context: str, model: str = None
+        self,
+        query: str,
+        context: str,
+        conversation: List[Dict[str, str]],  # Each dict has 'content' and 'role' keys
+        model: str = None,
     ) -> str:
         try:
             model = model or self.settings.OPENAI_MODEL_NAME
-            prompt = f"Query: {query}\n\nRelevant Context:\n{context}\n\nResponse:"
 
-            response = self.openai_client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """You are trained on the users documents and are able to answer questions about them. 
-                     You will ONLY use the information provided in the relevant context to answer the question, 
-                     and if you need to use information from your internal knowledge, you will explicitly state that. You will be as concise as possible.""",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are given access to context from the users documents to answer questions about them. "
+                        "You will ONLY use the information provided in the relevant context to answer the question, "
+                        "and if you need to use information from your internal knowledge, you will explicitly state that. "
+                        "You will be as concise as possible."
+                    ),
+                }
+            ]
+
+            # # Add context as a system message
+            # if context:
+            #     messages.append(
+            #         {
+            #             "role": "system",
+            #             "content": f"Relevant context from documents:\n{context}",
+            #         }
+            #     )
+
+            # Add conversation history
+            messages.extend(conversation)
+
+            # Add the user's query as the latest message
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Query: {query}\n\nRelevant Context:\n{context}\n\nResponse:",
+                }
             )
-            return response.choices[0].message.content
+
+            self._debug_print_conversation(messages)
+
+            response = self.openai_client.responses.create(model=model, input=messages)
+
+            return response.output_text
         except Exception as e:
             self.logger.error(f"Failed to generate OpenAI response: {str(e)}")
             raise

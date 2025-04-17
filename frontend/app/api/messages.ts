@@ -1,5 +1,7 @@
-import { supabase } from "../lib/supabase";
-import type { Message } from "~/types/db";
+import type { Message } from "~/types/db.t";
+import { createClient } from "~/lib/supabase/client";
+
+const supabase = createClient();
 
 export const getMessages = async (chatId: string): Promise<Message[]> => {
   try {

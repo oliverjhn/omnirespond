@@ -12,7 +12,7 @@ import { useChats } from "~/hooks/useChats";
 import { cn } from "~/lib/utils";
 import * as React from "react";
 // import type { Workspace } from "~/types/workspace";
-import type { Workspace, Chat } from "~/types/db";
+import type { Workspace, Chat } from "~/types/db.t";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import {
   Command,

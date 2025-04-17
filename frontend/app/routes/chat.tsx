@@ -1,5 +1,5 @@
 import type { Route } from "./+types/chat";
-import type { Message } from "~/types/db";
+import type { Message } from "~/types/db.t";
 import { getMessages, createMessage } from "~/api/messages";
 import { getChat } from "~/api/chats";
 import { Card } from "~/components/ui/card";
@@ -79,13 +79,14 @@ const sendMessage = async (
   }
 };
 
-export async function loader({
-  params,
-}: Route.LoaderArgs): Promise<{
+// implement auth in 'loader' later
+
+export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
   messages: ExtendedMessage[];
   chatId: string;
   workspaceId: string;
   chatNotFound?: boolean;
+  chatName?: string;
 }> {
   const { workspaceId, chatId } = params;
   // implement auth here later
@@ -103,7 +104,7 @@ export async function loader({
   }
 
   const messages = await getMessages(chatId);
-  return { messages, chatId, workspaceId };
+  return { messages, chatId, workspaceId, chatName: chat.name };
 }
 
 const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
@@ -143,6 +144,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
     chatId,
     chatNotFound,
     workspaceId,
+    chatName,
   } = loaderData;
   const navigate = useNavigate();
   const handledNotFoundRef = useRef(false);
@@ -154,6 +156,12 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       navigate(`/workspaces/${workspaceId}`);
     }
   }, [chatNotFound, navigate, workspaceId]);
+
+  useEffect(() => {
+    if (chatName) {
+      document.title = chatName;
+    }
+  }, [chatName]);
 
   const queryClient = useQueryClient();
   const textareaRef = useRef<HTMLTextAreaElement>(null);

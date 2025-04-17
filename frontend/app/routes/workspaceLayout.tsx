@@ -1,18 +1,19 @@
 import { Outlet } from "react-router";
 import { ChatSidebar } from "~/components/ChatSidebar";
 import type { Route } from "./+types/workspaceLayout";
-import type { Workspace, Chat } from "~/types/db";
+import type { Workspace, Chat } from "~/types/db.t";
 import { getWorkspace, getWorkspaces } from "~/api/workspaces";
 import { Sidebar } from "~/components/Sidebar";
 import { getChats } from "~/api/chats";
 
-export async function loader({ params }: Route.LoaderArgs): Promise<{
+// implement auth in 'loader' function later
+
+export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
   currentWorkspace: Workspace;
   workspaceChats: Chat[];
   allWorkspaces: Workspace[];
 }> {
   const { workspaceId } = params;
-  // implement auth here later
 
   if (!workspaceId) {
     throw new Error("Workspace ID is required");

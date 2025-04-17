@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createChat, getChats, deleteChat } from "~/api/chats";
-import type { Chat } from "~/types/db";
-import { supabase } from "~/lib/supabase";
+import type { Chat } from "~/types/db.t";
 import React from "react";
+import { createClient } from "~/lib/supabase/client";
+
+const supabase = createClient();
 
 export function useChats(workspaceId: string, initialChats: Chat[] = []) {
   const queryClient = useQueryClient();

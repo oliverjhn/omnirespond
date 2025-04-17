@@ -5,9 +5,11 @@ import {
   getWorkspaces,
   updateWorkspace,
 } from "../api/workspaces";
-import type { Workspace } from "../types/db";
-import { supabase } from "../lib/supabase";
+import type { Workspace } from "../types/db.t";
 import React from "react";
+import { createClient } from "~/lib/supabase/client";
+
+const supabase = createClient();
 
 type UpdateWorkspaceParams = {
   id: string;

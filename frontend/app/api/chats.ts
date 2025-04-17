@@ -1,5 +1,7 @@
-import { supabase } from "../lib/supabase";
-import type { Chat } from "~/types/db";
+import { createClient } from "~/lib/supabase/client";
+import type { Chat } from "~/types/db.t";
+
+const supabase = createClient();
 
 export const getChats = async (workspaceId: string): Promise<Chat[]> => {
   try {

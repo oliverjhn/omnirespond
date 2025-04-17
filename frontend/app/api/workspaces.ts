@@ -1,5 +1,7 @@
-import { supabase } from "../lib/supabase";
-import type { Workspace } from "~/types/db";
+import type { Workspace } from "~/types/db.t";
+import { createClient } from "~/lib/supabase/client";
+
+const supabase = createClient();
 
 export const getWorkspaces = async (): Promise<Workspace[]> => {
   try {

@@ -5,15 +5,14 @@ env/
 *.pyo
 *.pyd
 .Python
-.env
 
 # Project specific
 qdrant_storage/
 archive_v1/
 old_tests/
+text/
+pdfs/
 
-# IDE
-.idea/
 
 # OS
 .DS_Store

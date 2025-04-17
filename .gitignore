@@ -1,9 +1,4 @@
 node_modules/
 .turbo/
 
-env/
-frontend/.env.local
-.env
-
-backend/.env
-frontend/.env
+.env*

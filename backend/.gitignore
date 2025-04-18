@@ -12,6 +12,8 @@ archive_v1/
 old_tests/
 text/
 pdfs/
+/text/
+/pdfs/
 
 
 # OS

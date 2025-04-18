@@ -1,10 +1,13 @@
-import { Outlet } from "react-router";
+import { Outlet, useSearchParams } from "react-router";
 import { ChatSidebar } from "~/components/ChatSidebar";
 import type { Route } from "./+types/workspaceLayout";
 import type { Workspace, Chat } from "~/types/db.t";
 import { getWorkspace, getWorkspaces } from "~/api/workspaces";
 import { Sidebar } from "~/components/Sidebar";
 import { getChats } from "~/api/chats";
+import { redirect } from "react-router";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 // implement auth in 'loader' function later
 
@@ -25,7 +28,8 @@ export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
   ]);
 
   if (!currentWorkspace) {
-    throw new Response("Workspace not found", { status: 404 });
+    // redirect with error param to show toast on Workspaces page
+    throw redirect("/workspaces?error=workspace_not_found");
   }
   if (!workspaceChats) {
     throw new Response("Chats not found", { status: 404 });
@@ -39,6 +43,20 @@ export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
 
 export default function WorkspaceLayout({ loaderData }: Route.ComponentProps) {
   const { currentWorkspace, workspaceChats, allWorkspaces } = loaderData;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const error = searchParams.get("error");
+  const shownToast = useRef(false);
+  useEffect(() => {
+    if (error === "chat_not_found" && !shownToast.current) {
+      shownToast.current = true;
+      toast.error("Chat not found");
+      const params = new URLSearchParams(searchParams);
+      params.delete("error");
+      setSearchParams(params, { replace: true });
+    } else if (error !== "chat_not_found") {
+      shownToast.current = false;
+    }
+  }, [error, searchParams, setSearchParams]);
 
   return (
     <div className="flex h-screen">

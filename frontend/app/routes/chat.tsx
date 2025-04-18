@@ -13,7 +13,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { redirect, useNavigate } from "react-router";
+import { redirect } from "react-router";
 
 // Extend Message type to include loading state
 type ExtendedMessage = Message & {
@@ -79,33 +79,50 @@ const sendMessage = async (
   }
 };
 
-// implement auth in 'loader' later
+// Server-side loader to handle invalid chat routes and redirect
+export async function loader({ params }: Route.LoaderArgs): Promise<{
+  messages: ExtendedMessage[];
+  chatId: string;
+  chatName?: string;
+}> {
+  const { workspaceId, chatId } = params;
+  if (!workspaceId) {
+    throw new Response("Workspace ID is required", { status: 400 });
+  }
+  if (!chatId) {
+    throw new Response("Chat ID is required", { status: 400 });
+  }
+  console.log("Server Loader, chatId: " + chatId);
+  const chat = await getChat(workspaceId, chatId);
+  if (!chat) {
+    throw redirect(`/workspaces/${workspaceId}?error=chat_not_found`);
+  }
+  // All validations passed, fetch messages
+  const messages = await getMessages(chatId);
+  return { messages, chatId, chatName: chat.name };
+}
 
 export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
   messages: ExtendedMessage[];
   chatId: string;
-  workspaceId: string;
-  chatNotFound?: boolean;
   chatName?: string;
 }> {
   const { workspaceId, chatId } = params;
-  // implement auth here later
-
   if (!workspaceId) {
     throw new Error("Workspace ID is required");
   }
   if (!chatId) {
     throw new Error("Chat ID is required");
   }
-  // Handle missing chat: show notification and redirect on client
+  console.log("Client Loader, chatId: " + chatId);
   const chat = await getChat(workspaceId, chatId);
   if (!chat) {
-    return { messages: [], chatId, chatNotFound: true, workspaceId };
+    throw redirect(`/workspaces/${workspaceId}?error=chat_not_found`);
   }
-
   const messages = await getMessages(chatId);
-  return { messages, chatId, workspaceId, chatName: chat.name };
+  return { messages, chatId, chatName: chat.name };
 }
+clientLoader.hydrate = false;
 
 const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
   const isAI = message.role === "assistant";
@@ -139,23 +156,7 @@ const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
 };
 
 export default function Chat({ loaderData }: Route.ComponentProps) {
-  const {
-    messages: initialMessages,
-    chatId,
-    chatNotFound,
-    workspaceId,
-    chatName,
-  } = loaderData;
-  const navigate = useNavigate();
-  const handledNotFoundRef = useRef(false);
-
-  useEffect(() => {
-    if (chatNotFound && !handledNotFoundRef.current) {
-      handledNotFoundRef.current = true;
-      toast.error("Chat does not exist");
-      navigate(`/workspaces/${workspaceId}`);
-    }
-  }, [chatNotFound, navigate, workspaceId]);
+  const { messages: initialMessages, chatId, chatName } = loaderData;
 
   useEffect(() => {
     if (chatName) {
@@ -382,7 +383,6 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
           </div>
         </div>
       </div>
-      <Toaster position="top-right" closeButton />
     </div>
   );
 }

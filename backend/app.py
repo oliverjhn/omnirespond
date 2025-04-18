@@ -58,8 +58,10 @@ if settings.ENVIRONMENT == "production":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
+    # allow any localhost dev port
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -91,7 +93,7 @@ def get_services(settings=Depends(get_settings)):
     return DocumentService(storage, vector_db, embedder, llm, extractor, settings)
 
 
-@app.post("/upload/", response_model=UploadResponse)
+@app.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
     collection_name: str = Form("unsorted"),
@@ -121,7 +123,7 @@ async def upload_file(
     )
 
 
-@app.post("/query/", response_model=QueryResponse)
+@app.post("/query", response_model=QueryResponse)
 async def query_documents(
     request: QueryRequest, service: DocumentService = Depends(get_services)
 ):

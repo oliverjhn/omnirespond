@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     @field_validator("ALLOWED_ORIGINS")
     def validate_allowed_origins(cls, v, values):
+        # Parse comma-separated string into list
+        if isinstance(v, str):
+            v = [origin.strip() for origin in v.split(",")]
         env = values.data.get("ENVIRONMENT", "development")
         if env == "production" and "*" in v:
             raise ValueError("Wildcard (*) origin is not allowed in production")

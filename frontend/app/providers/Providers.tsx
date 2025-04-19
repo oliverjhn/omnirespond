@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "./theme-provider";
+import { ThemeProvider } from "./ThemeProvider";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
 

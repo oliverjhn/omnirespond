@@ -30,9 +30,10 @@ class StorageService(BaseService):
     ) -> str:
         """Store chunks in a JSON format with their metadata"""
         try:
-            collection = metadata.get("collection", "unsorted")
+            # Use workspace_id for storage partition
+            workspace_id = metadata.get("workspace_id", "unsorted")
             filename = metadata.get("filename", "unnamed")
-            document_key = f"{collection}/{filename}/document.json"
+            document_key = f"{workspace_id}/{filename}/document.json"
 
             # Create document structure
             document = {

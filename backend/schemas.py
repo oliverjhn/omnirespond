@@ -47,8 +47,8 @@ class QueryRequest(BaseModel):
         ...,
         description="The complete conversation with the chatbot, including the most recent user message",
     )
-    collection_name: str = Field(
-        default="unsorted", description="Collection to search in"
+    workspace_id: str = Field(
+        ..., description="Workspace ID to search in for multitenancy partition"
     )
     model: str = Field(
         default="gpt-4o-mini",

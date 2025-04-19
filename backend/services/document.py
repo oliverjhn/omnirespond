@@ -57,7 +57,7 @@ class DocumentService(BaseService):
 
             # Create collection and store embeddings
             await self.vector_db.create_collection(
-                metadata["collection"], self.embedder.dimension
+                self.vector_db.collection_name, self.embedder.dimension
             )
             await self.vector_db.store_embeddings(
                 dense_embeddings, sparse_embeddings, chunks, document_key, metadata

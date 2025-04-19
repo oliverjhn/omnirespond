@@ -96,7 +96,7 @@ def get_services(settings=Depends(get_settings)):
 @app.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    collection_name: str = Form("unsorted"),
+    workspace_id: str = Form(..., description="Workspace ID for upload"),
     extractor_type: str = Form("pypdf"),
     service: DocumentService = Depends(get_services),
 ):
@@ -106,11 +106,12 @@ async def upload_file(
     if extractor_type in ["unstructured", "pypdf"]:
         service.extractor.set_extractor(".pdf", extractor_type)
 
+    # Pass workspace_id in metadata for downstream partitioning
     result = await service.process_document(
         content=content,
         metadata={
             "filename": file.filename,
-            "collection": collection_name,
+            "workspace_id": workspace_id,
             "upload_time": datetime.datetime.now().isoformat(),
         },
     )
@@ -127,9 +128,10 @@ async def upload_file(
 async def query_documents(
     request: QueryRequest, service: DocumentService = Depends(get_services)
 ):
+    # Use workspace_id from request for partitioned search
     result = await service.process_query(
         request.query,
-        request.collection_name,
+        request.workspace_id,
         request.conversation,
         request.model,
     )

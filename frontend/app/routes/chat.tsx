@@ -13,7 +13,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { redirect } from "react-router";
+import { redirect, useParams } from "react-router";
 
 // Extend Message type to include loading state
 type ExtendedMessage = Message & {
@@ -33,7 +33,8 @@ type MessageFormData = z.infer<typeof messageSchema>;
 const sendMessage = async (
   prompt: string,
   conversation: Message[],
-  chatId: string
+  chatId: string,
+  workspaceId: string
 ): Promise<ExtendedMessage[]> => {
   // Create user message in Supabase immediately
   const userMessage = await createMessage({
@@ -45,16 +46,11 @@ const sendMessage = async (
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/query`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: prompt,
-        collection_name: "unsorted",
-        conversation: conversation.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
+        workspace_id: workspaceId,
+        conversation: conversation.map((msg) => ({ role: msg.role, content: msg.content })),
         model: "gpt-4o-mini",
       }),
     });
@@ -157,6 +153,7 @@ const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
 
 export default function Chat({ loaderData }: Route.ComponentProps) {
   const { messages: initialMessages, chatId, chatName } = loaderData;
+  const { workspaceId } = useParams<{ workspaceId: string; chatId: string }>();
 
   useEffect(() => {
     if (chatName) {
@@ -199,7 +196,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
 
   const mutation = useMutation({
     mutationFn: (data: MessageFormData) =>
-      sendMessage(data.prompt, messages, chatId),
+      sendMessage(data.prompt, messages, chatId, workspaceId!),
     onMutate: async (data) => {
       // Create optimistic user message and loading message
       const optimisticUserMessage: ExtendedMessage = {

@@ -8,25 +8,47 @@ import {
   DialogFooter,
   DialogClose,
 } from "~/components/ui/dialog";
+import { useParams } from "react-router";
 
 export const AddSourceModal = () => {
-  // Basic state for file handling (will be expanded later)
+  // Get current workspace ID from route
+  const { workspaceId } = useParams<{ workspaceId: string }>();
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [uploading, setUploading] = React.useState(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       setSelectedFile(event.target.files[0]);
-      // TODO: Add file validation (type, size)
     }
   };
 
-  const handleUpload = () => {
-    if (selectedFile) {
-      console.log("Uploading file:", selectedFile.name);
-      // TODO: Implement actual upload logic here
-      // E.g., call an API endpoint
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+    if (!workspaceId) {
+      alert("Workspace ID not found in URL");
+      return;
     }
-    // TODO: Close modal on successful upload
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("workspace_id", workspaceId);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload/`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Upload failed: ${data.detail || res.statusText}`);
+      } else {
+        alert(`Upload successful: ${data.total_chunks} chunks processed`);
+        setSelectedFile(null);
+      }
+    } catch (err) {
+      alert(`Upload error: ${err}`);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -39,7 +61,6 @@ export const AddSourceModal = () => {
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-4 py-4">
-        {/* TODO: Add source type selection (e.g., RadioGroup) */}
         <div className="grid grid-cols-1 gap-2">
           <label
             htmlFor="file-upload"
@@ -47,7 +68,6 @@ export const AddSourceModal = () => {
                        text-sm font-medium text-muted-foreground 
                        hover:bg-accent hover:text-accent-foreground hover:cursor-pointer transition-colors"
           >
-            {/* You can add an icon here too, e.g., <Upload className="mr-2 h-4 w-4" /> */}
             Click or drag file to upload
           </label>
           <Input
@@ -69,8 +89,8 @@ export const AddSourceModal = () => {
             Cancel
           </Button>
         </DialogClose>
-        <Button onClick={handleUpload} disabled={!selectedFile}>
-          Upload File
+        <Button onClick={handleUpload} disabled={!selectedFile || uploading}>
+          {uploading ? "Uploading..." : "Upload File"}
         </Button>
       </DialogFooter>
     </>

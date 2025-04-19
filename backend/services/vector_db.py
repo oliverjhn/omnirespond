@@ -1,14 +1,10 @@
 from typing import List, Dict
 import numpy as np
-from qdrant_client import QdrantClient
+from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct
 from .base import BaseService
 from .types import DocumentChunk
-
-# temp
-from qdrant_client import models
 from .base import log_timing
-
 
 class VectorDBService(BaseService):
     def __init__(self, settings):
@@ -17,15 +13,18 @@ class VectorDBService(BaseService):
         self.client = QdrantClient(
             url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY
         )
+        # Use a single Qdrant collection for all workspaces
+        self.collection_name = settings.DEFAULT_COLLECTION
 
     @log_timing
     async def create_collection(self, collection_name: str, vector_size: int):
         """Create a new collection if it doesn't exist"""
         try:
+            # Always ensure a single collection for all workspaces
             collections = self.client.get_collections()
-            if collection_name not in [col.name for col in collections.collections]:
+            if self.collection_name not in [col.name for col in collections.collections]:
                 self.client.recreate_collection(
-                    collection_name=collection_name,
+                    collection_name=self.collection_name,
                     vectors_config={
                         "dense": models.VectorParams(
                             size=vector_size, distance=models.Distance.COSINE
@@ -37,7 +36,7 @@ class VectorDBService(BaseService):
                         )
                     },
                 )
-                self.logger.info(f"Created collection: {collection_name}")
+                self.logger.info(f"Created collection: {self.collection_name}")
         except Exception as e:
             self.logger.error(f"Failed to create collection: {str(e)}")
             raise
@@ -53,7 +52,12 @@ class VectorDBService(BaseService):
     ):
         """Store both dense and sparse embeddings with their metadata"""
         try:
-            collection = metadata.get("collection", "unsorted")
+            # Extract workspace id from metadata for partitioning
+            workspace_id = metadata.get("workspace_id")
+            # Filter out keys not needed in payload (collection, workspace_id)
+            metadata_payload = {k: v for k, v in metadata.items() if k not in ["collection", "workspace_id"]}
+            # Store all embeddings in the single collection
+            collection = self.collection_name
             points = [
                 PointStruct(
                     id=self._generate_chunk_id(metadata["filename"], chunk),
@@ -64,8 +68,9 @@ class VectorDBService(BaseService):
                             values=sparse_embedding["values"],
                         ),
                     },
-                    payload={
-                        **metadata,
+                    payload={  # Include group_id for multitenancy partition
+                        **metadata_payload,
+                        "group_id": workspace_id,
                         "chunk_index": idx,
                         "document_key": document_key,
                     },
@@ -92,10 +97,20 @@ class VectorDBService(BaseService):
         self, collection_name: str, query_vector: np.ndarray, limit: int = 5
     ) -> List[Dict]:
         try:
+            # Filter results by workspace via group_id for multitenancy
+            filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="group_id",
+                        match=models.MatchValue(value=collection_name),
+                    )
+                ]
+            )
             results = self.client.search(
-                collection_name=collection_name,
+                collection_name=self.collection_name,
                 query_vector=query_vector.tolist(),
                 limit=limit,
+                query_filter=filter,  # Multitenancy filter by group_id
             )
             return [
                 {
@@ -126,9 +141,18 @@ class VectorDBService(BaseService):
         sparse_limit: int = 2,
     ) -> List[Dict]:
         try:
-            # Get initial results using hybrid search
+            # Apply workspace filter via group_id for multitenancy
+            filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="group_id",
+                        match=models.MatchValue(value=collection_name),
+                    )
+                ]
+            )
             response = self.client.query_points(
-                collection_name=collection_name,
+                collection_name=self.collection_name,
+                query_filter=filter,  # Multitenancy filter by group_id
                 prefetch=[
                     models.Prefetch(
                         query=query_vector.tolist(),

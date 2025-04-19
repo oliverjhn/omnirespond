@@ -3,11 +3,11 @@ import { ChatSidebar } from "~/components/ChatSidebar";
 import type { Route } from "./+types/workspaceLayout";
 import type { Workspace, Chat } from "~/types/db.t";
 import { getWorkspace, getWorkspaces } from "~/api/workspaces";
-import { Sidebar } from "~/components/Sidebar";
 import { getChats } from "~/api/chats";
 import { redirect } from "react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { WorkspaceSidebar } from "~/components/WorkspaceSidebar";
 
 // implement auth in 'loader' function later
 
@@ -61,11 +61,8 @@ export default function WorkspaceLayout({ loaderData }: Route.ComponentProps) {
   return (
     <div className="flex h-screen">
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex">
-          <Sidebar />
-          <div>
-            <ChatSidebar chats={workspaceChats} workspaces={allWorkspaces} />
-          </div>
+        <div className="h-full">
+          <ChatSidebar chats={workspaceChats} workspaces={allWorkspaces} />
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -73,6 +70,9 @@ export default function WorkspaceLayout({ loaderData }: Route.ComponentProps) {
           <div className="flex-1 overflow-auto">
             <Outlet />
           </div>
+        </div>
+        <div className="h-full">
+          <WorkspaceSidebar />
         </div>
       </div>
     </div>

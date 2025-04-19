@@ -4,7 +4,7 @@ import { Button } from "~/components/ui/button";
 import { Send } from "lucide-react";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
-import { Sidebar } from "~/components/Sidebar";
+import { Sidebar } from "~/components/WorkspaceSidebar";
 import { ChatSidebar } from "~/components/ChatSidebar";
 
 type Message = {

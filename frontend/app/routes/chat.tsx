@@ -50,7 +50,10 @@ const sendMessage = async (
       body: JSON.stringify({
         query: prompt,
         workspace_id: workspaceId,
-        conversation: conversation.map((msg) => ({ role: msg.role, content: msg.content })),
+        conversation: conversation.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
         model: "gpt-4o-mini",
       }),
     });
@@ -335,7 +338,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
             <div ref={messagesEndRef} />
           </div>
         </div>
-        <div className="fixed bottom-6 left-0 right-0 px-4">
+        <div className="p-4 bg-background">
           <div className="max-w-3xl mx-auto">
             <form onSubmit={onSubmit} className="flex flex-col gap-2">
               <div className="flex gap-2 bg-background shadow-[0_0_15px_rgba(0,0,0,0.1)] rounded-lg p-2">

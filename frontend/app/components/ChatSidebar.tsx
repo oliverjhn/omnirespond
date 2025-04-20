@@ -6,7 +6,14 @@ import {
 } from "~/components/ui/sidebar";
 import { Separator } from "~/components/ui/separator";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { MessageSquare, ChevronsUpDown, Plus, Trash2 } from "lucide-react";
+import {
+  MessageSquare,
+  ChevronsUpDown,
+  Plus,
+  Trash2,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { useWorkspaces } from "~/hooks/useWorkspaces";
 import { useChats } from "~/hooks/useChats";
 import { cn } from "~/lib/utils";
@@ -39,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
 import { useNavigate, useParams, Link } from "react-router";
+import { useTheme } from "~/providers/ThemeProvider";
 
 interface ChatSidebarProps {
   chats: Chat[];
@@ -58,6 +66,7 @@ export function ChatSidebar({
     workspaceId || "",
     initialChats
   );
+  const { theme, setTheme } = useTheme();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [chatIdToDelete, setChatIdToDelete] = React.useState<string | null>(
@@ -262,6 +271,21 @@ export function ChatSidebar({
               )}
             </div>
           </ScrollArea>
+          <div className="mt-auto p-4 border-t">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="w-8 h-8 rounded-md"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </SidebarContent>
       </Sidebar>
       {/* Confirmation Dialog */}

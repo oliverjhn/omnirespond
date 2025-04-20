@@ -10,7 +10,11 @@ import {
 } from "~/components/ui/dialog";
 import { useParams } from "react-router";
 
-export const AddSourceModal = () => {
+interface AddSourceModalProps {
+  onSuccess?: () => void;
+}
+
+export const AddSourceModal = ({ onSuccess }: AddSourceModalProps) => {
   // Get current workspace ID from route
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -39,10 +43,14 @@ export const AddSourceModal = () => {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(`Upload failed: ${data.detail || res.statusText}`);
+        console.log(`Upload failed: ${data.detail || res.statusText}`);
       } else {
-        alert(`Upload successful: ${data.total_chunks} chunks processed`);
+        console.log(`Upload successful: ${data.total_chunks} chunks processed`);
         setSelectedFile(null);
+        // Call the onSuccess callback to notify parent component
+        if (onSuccess) {
+          onSuccess();
+        }
       }
     } catch (err) {
       alert(`Upload error: ${err}`);

@@ -1,6 +1,6 @@
 import { Outlet, useSearchParams } from "react-router";
 import { ChatSidebar } from "~/components/ChatSidebar";
-import type { Route } from "./+types/workspaceLayout";
+import type { Route } from "./+types/workspace-layout";
 import type { Workspace, Chat } from "~/types/db.t";
 import { getWorkspace, getWorkspaces } from "~/api/workspaces";
 import { getChats } from "~/api/chats";
@@ -66,7 +66,6 @@ export default function WorkspaceLayout({ loaderData }: Route.ComponentProps) {
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <h1 className="text-2xl font-bold p-4">{currentWorkspace.name}</h1>
           <div className="flex-1 overflow-auto">
             <Outlet />
           </div>

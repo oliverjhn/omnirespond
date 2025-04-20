@@ -9,6 +9,9 @@ import {
   DialogClose,
 } from "~/components/ui/dialog";
 import { useParams } from "react-router";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { createSource, getSources } from "~/api/sources";
+import { toast } from "sonner";
 
 interface AddSourceModalProps {
   onSuccess?: () => void;
@@ -18,7 +21,28 @@ export const AddSourceModal = ({ onSuccess }: AddSourceModalProps) => {
   // Get current workspace ID from route
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-  const [uploading, setUploading] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const queryClient = useQueryClient();
+
+  // Get existing sources from cache
+  const { data: sources = [] } = useQuery({
+    queryKey: ["sources", workspaceId],
+    queryFn: () => getSources(workspaceId!),
+    enabled: !!workspaceId,
+  });
+
+  const createSourceMutation = useMutation({
+    mutationFn: createSource,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sources", workspaceId] });
+      if (onSuccess) {
+        onSuccess();
+      }
+    },
+    onError: (error) => {
+      toast.error("Failed to create source: " + error.message);
+    },
+  });
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -29,33 +53,49 @@ export const AddSourceModal = ({ onSuccess }: AddSourceModalProps) => {
   const handleUpload = async () => {
     if (!selectedFile) return;
     if (!workspaceId) {
-      alert("Workspace ID not found in URL");
+      toast.error("Workspace ID not found");
       return;
     }
-    setUploading(true);
+
+    setIsUploading(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
     formData.append("workspace_id", workspaceId);
+
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload/`, {
+      // Client-side duplicate check
+      if (sources.some((s) => s.name === selectedFile.name)) {
+        toast.error("A file with this name already exists in your workspace");
+        setIsUploading(false);
+        return;
+      }
+
+      // First upload the file to the backend
+      const uploadRes = await fetch(`${import.meta.env.VITE_API_URL}/upload/`, {
         method: "POST",
         body: formData,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        console.log(`Upload failed: ${data.detail || res.statusText}`);
-      } else {
-        console.log(`Upload successful: ${data.total_chunks} chunks processed`);
-        setSelectedFile(null);
-        // Call the onSuccess callback to notify parent component
-        if (onSuccess) {
-          onSuccess();
-        }
+
+      if (!uploadRes.ok) {
+        const data = await uploadRes.json();
+        throw new Error(data.detail || uploadRes.statusText);
       }
+
+      // Then create the source record in Supabase
+      await createSourceMutation.mutateAsync({
+        name: selectedFile.name,
+        source_type: "file",
+        workspace_id: workspaceId,
+      });
+
+      setSelectedFile(null);
+      toast.success("File uploaded successfully");
     } catch (err) {
-      alert(`Upload error: ${err}`);
+      toast.error(
+        `Upload error: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
-      setUploading(false);
+      setIsUploading(false);
     }
   };
 
@@ -97,8 +137,15 @@ export const AddSourceModal = ({ onSuccess }: AddSourceModalProps) => {
             Cancel
           </Button>
         </DialogClose>
-        <Button onClick={handleUpload} disabled={!selectedFile || uploading}>
-          {uploading ? "Uploading..." : "Upload File"}
+        <Button
+          onClick={handleUpload}
+          disabled={
+            !selectedFile || isUploading || createSourceMutation.isPending
+          }
+        >
+          {isUploading || createSourceMutation.isPending
+            ? "Uploading..."
+            : "Upload File"}
         </Button>
       </DialogFooter>
     </>

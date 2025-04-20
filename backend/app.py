@@ -6,7 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
-from schemas import UploadResponse, QueryRequest, QueryResponse
+from schemas import (
+    UploadResponse,
+    QueryRequest,
+    QueryResponse,
+    DeleteRequest,
+    DeleteResponse,
+)
 from config import get_settings
 from services import (
     DocumentService,
@@ -28,8 +34,6 @@ app = FastAPI(
     title="OmniRespond API",
     description="API for document processing and RAG-based querying",
     version="1.0.0",
-    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
-    redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
 )
 
 
@@ -140,3 +144,26 @@ async def query_documents(
         response=result["response"],
         relevant_chunks=result["relevant_chunks"],
     )
+
+
+@app.post("/delete", response_model=DeleteResponse)
+async def delete_documents(
+    request: DeleteRequest, service: DocumentService = Depends(get_services)
+):
+    """Delete points associated with specified filenames in a workspace."""
+    try:
+        result = await service.vector_db.delete_points_by_filter(
+            workspace_id=request.workspace_id,
+            filenames=request.filenames,
+        )
+        status = getattr(result, "status", "UNKNOWN") if result else "NO_ACTION"
+        return DeleteResponse(
+            message=f"Deletion process initiated for filenames: {request.filenames} in workspace: {request.workspace_id}.",
+            status=str(status),  # Convert potential enum/object to string
+        )
+    except Exception as e:
+        logging.exception("Error during document deletion")  # Log the exception
+        return JSONResponse(
+            status_code=500,
+            content={"message": "An error occurred during deletion.", "error": str(e)},
+        )

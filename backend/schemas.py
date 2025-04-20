@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 # class WorkspaceSchema(BaseModel):
@@ -68,3 +68,13 @@ class TimingInfo(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     relevant_chunks: List[Dict]
+
+
+class DeleteRequest(BaseModel):
+    workspace_id: str
+    filenames: List[str]
+
+
+class DeleteResponse(BaseModel):
+    message: str
+    status: str

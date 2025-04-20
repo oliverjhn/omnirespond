@@ -1,10 +1,17 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 import numpy as np
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import PointStruct
+from qdrant_client.models import (
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
+    MatchAny,
+)
 from .base import BaseService
 from .types import DocumentChunk
 from .base import log_timing
+
 
 class VectorDBService(BaseService):
     def __init__(self, settings):
@@ -22,7 +29,9 @@ class VectorDBService(BaseService):
         try:
             # Always ensure a single collection for all workspaces
             collections = self.client.get_collections()
-            if self.collection_name not in [col.name for col in collections.collections]:
+            if self.collection_name not in [
+                col.name for col in collections.collections
+            ]:
                 self.client.recreate_collection(
                     collection_name=self.collection_name,
                     vectors_config={
@@ -55,7 +64,11 @@ class VectorDBService(BaseService):
             # Extract workspace id from metadata for partitioning
             workspace_id = metadata.get("workspace_id")
             # Filter out keys not needed in payload (collection, workspace_id)
-            metadata_payload = {k: v for k, v in metadata.items() if k not in ["collection", "workspace_id"]}
+            metadata_payload = {
+                k: v
+                for k, v in metadata.items()
+                if k not in ["collection", "workspace_id"]
+            }
             # Store all embeddings in the single collection
             collection = self.collection_name
             points = [
@@ -191,4 +204,38 @@ class VectorDBService(BaseService):
 
         except Exception as e:
             self.logger.error(f"Hybrid search failed: {str(e)}")
+            raise
+
+    @log_timing
+    async def delete_points_by_filter(self, workspace_id: str, filenames: List[str]):
+        """Delete points matching the workspace_id and filenames."""
+        try:
+            if not filenames:
+                self.logger.warning("No filenames provided for deletion.")
+                return None
+
+            qdrant_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="group_id",
+                        match=MatchValue(value=workspace_id),
+                    ),
+                    FieldCondition(
+                        key="filename",
+                        match=MatchAny(any=filenames),
+                    ),
+                ]
+            )
+
+            result = self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=qdrant_filter,
+            )
+            self.logger.info(
+                f"Deletion request sent for workspace {workspace_id}, filenames: {filenames}. Result: {result}"
+            )
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Failed to delete points by filter: {str(e)}")
             raise

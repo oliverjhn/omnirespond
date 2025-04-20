@@ -4,3 +4,4 @@ import type { Tables } from "~/types/supabase-generated";
 export type Workspace = Tables<"workspaces">;
 export type Message = Tables<"messages">;
 export type Chat = Tables<"chats">;
+export type Source = Tables<"sources">;

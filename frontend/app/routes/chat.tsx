@@ -113,69 +113,6 @@ type ExtendedMessage = Message & {
   isLoading?: boolean;
 };
 
-// API call to process query
-const sendMessage = async (
-  prompt: string,
-  conversation: Message[],
-  chatId: string,
-  workspaceId: string,
-  updateChatStatus: (params: {
-    chatId: string;
-    status: "responding" | "complete" | "failed" | "pending";
-  }) => Promise<"responding" | "complete" | "failed" | "pending">
-): Promise<ExtendedMessage[]> => {
-  // Create user message in Supabase immediately
-  const userMessage = await createMessage({
-    content: prompt,
-    role: "user",
-    chat_id: chatId,
-  });
-
-  try {
-    // Update chat status to responding
-    await updateChatStatus({ chatId, status: "responding" });
-
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/query`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: prompt,
-        workspace_id: workspaceId,
-        conversation: conversation.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        model: "gpt-4o-mini",
-      }),
-    });
-
-    if (!response.ok) {
-      // Update chat status to failed if request fails
-      await updateChatStatus({ chatId, status: "failed" });
-      throw new Error("Failed to send message");
-    }
-
-    const data = await response.json();
-
-    // Create assistant message in Supabase
-    const assistantMessage = await createMessage({
-      content: data.response,
-      role: "assistant",
-      chat_id: chatId,
-    });
-
-    // Update chat status to complete
-    await updateChatStatus({ chatId, status: "complete" });
-
-    return [userMessage, assistantMessage];
-  } catch (error) {
-    // Update chat status to failed if any error occurs
-    await updateChatStatus({ chatId, status: "failed" });
-    console.error("Error sending message:", error);
-    throw error;
-  }
-};
-
 // Server-side loader to handle invalid chat routes and redirect
 export async function loader({ params }: Route.LoaderArgs): Promise<{
   messages: ExtendedMessage[];
@@ -296,6 +233,8 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
             role: "user",
             chat_id: chatId,
           });
+          // Invalidate chats query immediately after user message is created
+          queryClient.invalidateQueries({ queryKey: ["chats", workspaceId] });
         }
 
         // Step 2: Update status and call API
@@ -303,7 +242,9 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
         const apiConversation = data.conversation; // History *before* the new user message
         // If userMessage was just created, add it to the history for the API call
         // Note: The API expects the full history including the triggering query
-        const currentQuery = data.prompt || (data.isAutoStart ? data.conversation[0]?.content : ''); // Get prompt for API
+        const currentQuery =
+          data.prompt ||
+          (data.isAutoStart ? data.conversation[0]?.content : ""); // Get prompt for API
 
         const response = await fetch(`${import.meta.env.VITE_API_URL}/query`, {
           method: "POST",
@@ -311,7 +252,8 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
           body: JSON.stringify({
             query: currentQuery, // Send the actual query content
             workspace_id: workspaceId!,
-            conversation: apiConversation.map((msg) => ({ // Send history before *this* turn
+            conversation: apiConversation.map((msg) => ({
+              // Send history before *this* turn
               role: msg.role,
               content: msg.content,
             })),
@@ -337,7 +279,6 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
 
         // Return the actual messages created in this mutation run
         return { userMessage, assistantMessage };
-
       } catch (error) {
         await updateChatStatus.mutateAsync({ chatId, status: "failed" });
         console.error("Error in message mutation:", error);
@@ -356,7 +297,9 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       ]);
 
       // Generate temporary IDs
-      const optimisticUserMessageId = variables.isAutoStart ? null : crypto.randomUUID();
+      const optimisticUserMessageId = variables.isAutoStart
+        ? null
+        : crypto.randomUUID();
       const optimisticLoadingMessageId = crypto.randomUUID();
 
       // Create optimistic messages
@@ -394,7 +337,11 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       );
 
       // Return context with temporary IDs
-      return { previousMessages, optimisticUserMessageId, optimisticLoadingMessageId };
+      return {
+        previousMessages,
+        optimisticUserMessageId,
+        optimisticLoadingMessageId,
+      };
     },
     onSuccess: (data, variables, context) => {
       // data contains { userMessage, assistantMessage } from mutationFn
@@ -405,9 +352,10 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
         ["messages", chatId],
         (old = []) => {
           // Filter out the optimistic messages using their temporary IDs
-          const filteredMessages = old.filter(msg =>
-            msg.id !== context.optimisticLoadingMessageId &&
-            msg.id !== context.optimisticUserMessageId // Will be null/undefined if auto-start, safe to compare
+          const filteredMessages = old.filter(
+            (msg) =>
+              msg.id !== context.optimisticLoadingMessageId &&
+              msg.id !== context.optimisticUserMessageId // Will be null/undefined if auto-start, safe to compare
           );
 
           // Add the real messages returned from the mutation
@@ -420,7 +368,6 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
           return filteredMessages;
         }
       );
-
     },
     onError: (error, variables, context) => {
       toast.error(
@@ -430,7 +377,10 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       );
       // Rollback optimistic updates if context exists
       if (context?.previousMessages) {
-        queryClient.setQueryData(["messages", chatId], context.previousMessages);
+        queryClient.setQueryData(
+          ["messages", chatId],
+          context.previousMessages
+        );
       }
     },
   });

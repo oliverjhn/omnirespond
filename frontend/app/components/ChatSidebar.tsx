@@ -44,6 +44,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "~/components/ui/context-menu";
 import { useNavigate, useParams, Link } from "react-router";
 import { useTheme } from "~/providers/ThemeProvider";
 
@@ -99,7 +105,10 @@ export function ChatSidebar({
   // Handle chat deletion confirmation
   const handleDeleteClick = (id: string) => {
     setChatIdToDelete(id);
-    setIsDeleteDialogOpen(true);
+    // Delay opening the dialog slightly to allow context menu to close properly
+    setTimeout(() => {
+      setIsDeleteDialogOpen(true);
+    }, 0);
   };
 
   const handleDeleteConfirm = async () => {
@@ -147,8 +156,8 @@ export function ChatSidebar({
                     {isLoading
                       ? "Loading..."
                       : workspaces.find(
-                        (workspace) => workspace.id === workspaceId
-                      )?.name || "Select workspace..."}
+                          (workspace) => workspace.id === workspaceId
+                        )?.name || "Select workspace..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
@@ -227,39 +236,57 @@ export function ChatSidebar({
           <ScrollArea className="flex-1 p-2">
             <div className="space-y-1">
               {chats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className="relative group/chat flex items-center hover:bg-accent rounded-md"
-                >
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "w-full justify-start gap-2 group-hover/chat:bg-transparent",
-                      params.chatId === chat.id && "bg-accent"
-                    )}
-                    asChild
-                  >
-                    <Link
-                      to={`/workspaces/${workspaceId}/chat/${chat.id}`}
-                      className="flex items-center flex-grow min-w-0"
+                <ContextMenu key={chat.id}>
+                  <ContextMenuTrigger asChild>
+                    <div className="relative group/chat flex items-center hover:bg-accent rounded-md">
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "w-full justify-start gap-2 group-hover/chat:bg-transparent",
+                          params.chatId === chat.id && "bg-accent"
+                        )}
+                        asChild
+                      >
+                        <Link
+                          to={`/workspaces/${workspaceId}/chat/${chat.id}`}
+                          className="flex items-center flex-grow min-w-0"
+                        >
+                          <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate flex-grow">
+                            {chat.name}
+                          </span>
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 right-0 absolute opacity-0 group-hover/chat:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-sm"
+                        onClick={(e) => {
+                          e.preventDefault(); // Prevent triggering link navigation
+                          handleDeleteClick(chat.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete chat</span>
+                      </Button>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-48">
+                    <ContextMenuItem
+                      inset
+                      onSelect={() => console.log("Rename chat:", chat.id)}
                     >
-                      <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate flex-grow">{chat.name}</span>
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 right-0 absolute opacity-0 group-hover/chat:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDeleteClick(chat.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete chat</span>
-                  </Button>
-                </div>
+                      Rename
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      inset
+                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                      onSelect={() => handleDeleteClick(chat.id)}
+                    >
+                      Delete
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
               {chats.length === 0 && (
                 <div className="p-8 text-center text-muted-foreground">

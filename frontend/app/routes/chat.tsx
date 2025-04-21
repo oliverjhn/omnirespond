@@ -4,18 +4,13 @@ import { getMessages, createMessage } from "~/api/messages";
 import { getChat } from "~/api/chats";
 import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
-import { Textarea } from "~/components/ui/textarea";
-import { Button } from "~/components/ui/button";
 import { Toaster } from "~/components/ui/sonner";
 import { toast } from "sonner";
 import { useRef, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { redirect, useParams } from "react-router";
 import { createClient } from "~/lib/supabase/client";
-import React from "react";
+import { ChatInputForm } from "~/components/chat/ChatInputForm";
 
 const supabase = createClient();
 
@@ -78,7 +73,7 @@ function useUpdateChatStatus() {
       status,
     }: {
       chatId: string;
-      status: "responding" | "complete" | "failed";
+      status: "responding" | "complete" | "failed" | "pending";
     }) => {
       const { error } = await supabase
         .from("chats")
@@ -103,7 +98,10 @@ function useUpdateChatStatus() {
     onError: (err, { chatId }, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousStatus) {
-        queryClient.setQueryData(["chatStatus", chatId], context.previousStatus);
+        queryClient.setQueryData(
+          ["chatStatus", chatId],
+          context.previousStatus
+        );
       }
       console.error("Error updating chat status:", err);
     },
@@ -115,22 +113,16 @@ type ExtendedMessage = Message & {
   isLoading?: boolean;
 };
 
-const messageSchema = z.object({
-  prompt: z
-    .string()
-    .min(1, "Message cannot be empty")
-    .max(4000, "Message too long"),
-});
-
-type MessageFormData = z.infer<typeof messageSchema>;
-
 // API call to process query
 const sendMessage = async (
   prompt: string,
   conversation: Message[],
   chatId: string,
   workspaceId: string,
-  updateChatStatus: (params: { chatId: string; status: "responding" | "complete" | "failed" }) => Promise<"responding" | "complete" | "failed">
+  updateChatStatus: (params: {
+    chatId: string;
+    status: "responding" | "complete" | "failed" | "pending";
+  }) => Promise<"responding" | "complete" | "failed" | "pending">
 ): Promise<ExtendedMessage[]> => {
   // Create user message in Supabase immediately
   const userMessage = await createMessage({
@@ -264,6 +256,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
   const { messages: initialMessages, chatId, chatName } = loaderData;
   const { workspaceId } = useParams<{ workspaceId: string; chatId: string }>();
   const updateChatStatus = useUpdateChatStatus();
+  const chatStatus = useChatStatus(chatId); // Get chat status
 
   useEffect(() => {
     if (chatName) {
@@ -272,7 +265,6 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
   }, [chatName]);
 
   const queryClient = useQueryClient();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize query cache with initial messages
@@ -281,51 +273,79 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
   }, [chatId, initialMessages, queryClient]);
 
   // Use query to get messages from cache
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [], isFetched: messagesFetched } = useQuery({
     queryKey: ["messages", chatId],
     queryFn: () => getMessages(chatId),
     initialData: initialMessages,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
-
-  const {
-    register,
-    handleSubmit: handleFormSubmit,
-    watch,
-    reset,
-    formState: { isValid },
-  } = useForm<MessageFormData>({
-    resolver: zodResolver(messageSchema),
-    defaultValues: {
-      prompt: "",
-    },
-    mode: "onChange",
-  });
-
-  const promptValue = watch("prompt");
-  const isValidPrompt = isValid && promptValue?.trim().length > 0;
 
   const mutation = useMutation({
-    mutationFn: (data: MessageFormData) =>
-      sendMessage(data.prompt, messages, chatId, workspaceId!, updateChatStatus.mutateAsync),
-    onMutate: async (data) => {
-      // Create optimistic user message and loading message
-      const optimisticUserMessage: ExtendedMessage = {
-        content: data.prompt,
-        role: "user",
-        chat_id: chatId,
-        id: crypto.randomUUID(), // Temporary ID for optimistic update
-        created_at: new Date().toISOString(),
-      };
+    mutationFn: async (data: {
+      prompt?: string;
+      conversation: Message[];
+      isAutoStart: boolean;
+    }) => {
+      let userMessage: Message | null = null;
+      try {
+        // Step 1: Create user message ONLY if it's a manual send
+        if (!data.isAutoStart && data.prompt) {
+          userMessage = await createMessage({
+            content: data.prompt,
+            role: "user",
+            chat_id: chatId,
+          });
+        }
 
-      const optimisticLoadingMessage: ExtendedMessage = {
-        content: "",
-        role: "assistant",
-        chat_id: chatId,
-        id: crypto.randomUUID(), // Temporary ID for optimistic update
-        created_at: new Date().toISOString(),
-        isLoading: true,
-      };
+        // Step 2: Update status and call API
+        await updateChatStatus.mutateAsync({ chatId, status: "responding" });
+        const apiConversation = data.conversation; // History *before* the new user message
+        // If userMessage was just created, add it to the history for the API call
+        // Note: The API expects the full history including the triggering query
+        const currentQuery = data.prompt || (data.isAutoStart ? data.conversation[0]?.content : ''); // Get prompt for API
 
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: currentQuery, // Send the actual query content
+            workspace_id: workspaceId!,
+            conversation: apiConversation.map((msg) => ({ // Send history before *this* turn
+              role: msg.role,
+              content: msg.content,
+            })),
+            model: "gpt-4o-mini",
+          }),
+        });
+
+        if (!response.ok) {
+          await updateChatStatus.mutateAsync({ chatId, status: "failed" });
+          throw new Error(`API Error: ${response.statusText}`);
+        }
+        const responseData = await response.json();
+
+        // Step 3: Create assistant message
+        const assistantMessage = await createMessage({
+          content: responseData.response,
+          role: "assistant",
+          chat_id: chatId,
+        });
+
+        // Step 4: Update status to complete
+        await updateChatStatus.mutateAsync({ chatId, status: "complete" });
+
+        // Return the actual messages created in this mutation run
+        return { userMessage, assistantMessage };
+
+      } catch (error) {
+        await updateChatStatus.mutateAsync({ chatId, status: "failed" });
+        console.error("Error in message mutation:", error);
+        // Re-throw error to be caught by onError
+        throw error;
+      }
+    },
+    onMutate: async (variables) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["messages", chatId] });
 
@@ -335,105 +355,140 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
         chatId,
       ]);
 
-      // Optimistically update to the new value
-      queryClient.setQueryData<ExtendedMessage[]>(
-        ["messages", chatId],
-        (old = []) => [...old, optimisticUserMessage, optimisticLoadingMessage]
-      );
+      // Generate temporary IDs
+      const optimisticUserMessageId = variables.isAutoStart ? null : crypto.randomUUID();
+      const optimisticLoadingMessageId = crypto.randomUUID();
 
-      // Return a context object with the snapshotted value
-      return {
-        previousMessages,
-        optimisticUserMessage,
-        optimisticLoadingMessage,
+      // Create optimistic messages
+      let optimisticUserMessage: ExtendedMessage | null = null;
+      if (optimisticUserMessageId && variables.prompt) {
+        optimisticUserMessage = {
+          content: variables.prompt,
+          role: "user",
+          chat_id: chatId,
+          id: optimisticUserMessageId,
+          created_at: new Date().toISOString(),
+        };
+      }
+
+      const optimisticLoadingMessage: ExtendedMessage = {
+        content: "",
+        role: "assistant",
+        chat_id: chatId,
+        id: optimisticLoadingMessageId,
+        created_at: new Date().toISOString(),
+        isLoading: true,
       };
-    },
-    onSuccess: (newMessages, _, context) => {
-      if (!context) return;
 
-      // Replace optimistic messages with real ones from Supabase
+      // Optimistically update the cache
       queryClient.setQueryData<ExtendedMessage[]>(
         ["messages", chatId],
         (old = []) => {
-          if (!old) return newMessages;
-          return old.map((msg) => {
-            // Replace optimistic user message
-            if (msg.id === context.optimisticUserMessage.id) {
-              return newMessages[0];
-            }
-            // Replace optimistic loading message
-            if (msg.id === context.optimisticLoadingMessage.id) {
-              return newMessages[1];
-            }
-            return msg;
-          });
+          const newMessages = [...old];
+          if (optimisticUserMessage) {
+            newMessages.push(optimisticUserMessage);
+          }
+          newMessages.push(optimisticLoadingMessage);
+          return newMessages;
         }
       );
 
-      reset();
-
-      // Reset textarea height after submission
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
-
-      // Scroll to bottom after adding a new message
-      setTimeout(() => scrollToBottom(), 100);
+      // Return context with temporary IDs
+      return { previousMessages, optimisticUserMessageId, optimisticLoadingMessageId };
     },
-    onError: (error, _, context) => {
-      if (context) {
-        // Restore previous messages on error
-        queryClient.setQueryData(
-          ["messages", chatId],
-          context.previousMessages
-        );
-      }
+    onSuccess: (data, variables, context) => {
+      // data contains { userMessage, assistantMessage } from mutationFn
+      // context contains { previousMessages, optimisticUserMessageId, optimisticLoadingMessageId }
+      if (!context) return;
+
+      queryClient.setQueryData<ExtendedMessage[]>(
+        ["messages", chatId],
+        (old = []) => {
+          // Filter out the optimistic messages using their temporary IDs
+          const filteredMessages = old.filter(msg =>
+            msg.id !== context.optimisticLoadingMessageId &&
+            msg.id !== context.optimisticUserMessageId // Will be null/undefined if auto-start, safe to compare
+          );
+
+          // Add the real messages returned from the mutation
+          if (data.userMessage) {
+            filteredMessages.push(data.userMessage);
+          }
+          if (data.assistantMessage) {
+            filteredMessages.push(data.assistantMessage);
+          }
+          return filteredMessages;
+        }
+      );
+
+    },
+    onError: (error, variables, context) => {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Error sending message. Please try again."
+          : "An unknown error occurred. Please try again."
       );
+      // Rollback optimistic updates if context exists
+      if (context?.previousMessages) {
+        queryClient.setQueryData(["messages", chatId], context.previousMessages);
+      }
     },
   });
 
-  // Function to scroll to bottom
+  // useEffect for auto-start
+  useEffect(() => {
+    if (
+      messagesFetched &&
+      chatStatus === "pending" &&
+      messages.length === 1 &&
+      messages[0].role === "user" &&
+      !mutation.isPending &&
+      !mutation.isSuccess // Prevent re-triggering if mutation just succeeded
+    ) {
+      console.log("Auto-starting generation for pending chat...");
+      // Pass the existing user message as conversation history for the API call
+      // The mutationFn will extract the prompt from this if needed
+      mutation.mutate({
+        conversation: messages, // Pass the single user message
+        isAutoStart: true,
+      });
+    }
+    // Add mutation.isSuccess to dependencies to prevent re-trigger after success
+  }, [
+    chatStatus,
+    messages,
+    messagesFetched,
+    mutation.isPending,
+    mutation.isSuccess,
+    mutation.mutate,
+    chatId,
+  ]); // Added mutation.mutate and chatId
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Auto-resize textarea as user types
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
+  // Define the submission handler for the new component
+  const handleSendMessage = (prompt: string) => {
+    if (mutation.isPending) return; // Should be handled by button state, but double-check
 
-    const adjustHeight = () => {
-      textarea.style.height = "auto";
-      textarea.style.height = `${textarea.scrollHeight}px`;
-    };
-
-    textarea.addEventListener("input", adjustHeight);
-    return () => textarea.removeEventListener("input", adjustHeight);
-  }, []);
-
-  const onSubmit = handleFormSubmit(async (data) => {
-    if (mutation.isPending) return; // Prevent multiple submissions
-
-    // Sanitize input - trim whitespace
-    const sanitizedPrompt = data.prompt.trim();
-
+    const sanitizedPrompt = prompt.trim(); // Already trimmed in ChatInputForm, but good practice
     if (sanitizedPrompt.length === 0) return;
 
-    try {
-      await mutation.mutateAsync(data);
-    } catch {
-      // Error is handled in mutation.onError
-    }
-  });
+    // Trigger the mutation for a manual send
+    // Pass the prompt and the current messages as history
+    mutation.mutate({
+      prompt: sanitizedPrompt,
+      conversation: messages, // Pass current messages as history
+      isAutoStart: false,
+    });
+
+    // Optimistic updates are handled entirely within onMutate
+  };
 
   return (
     <div className="flex h-full">
@@ -448,46 +503,11 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
         </div>
         <div className="p-4 bg-background">
           <div className="max-w-3xl mx-auto">
-            <form onSubmit={onSubmit} className="flex flex-col gap-2">
-              <div className="flex gap-2 bg-background shadow-[0_0_15px_rgba(0,0,0,0.1)] rounded-lg p-2">
-                <div className="flex-1">
-                  <Textarea
-                    {...register("prompt")}
-                    ref={(e) => {
-                      if (e) {
-                        register("prompt").ref(e);
-                        textareaRef.current = e;
-                      }
-                    }}
-                    placeholder="Type your message... (Press Shift + Enter for new line)"
-                    className="border-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent resize-none min-h-[44px] max-h-[300px] overflow-y-auto"
-                    disabled={mutation.isPending}
-                    rows={1}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === "Enter" &&
-                        !e.shiftKey &&
-                        isValidPrompt &&
-                        !mutation.isPending
-                      ) {
-                        e.preventDefault();
-                        onSubmit();
-                      }
-                    }}
-                    aria-label="Message input"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={mutation.isPending || !isValidPrompt}
-                  variant={isValidPrompt ? "default" : "secondary"}
-                  className="self-end"
-                  aria-label="Send message"
-                >
-                  {mutation.isPending ? "Sending..." : "Send"}
-                </Button>
-              </div>
-            </form>
+            {/* Use the new ChatInputForm component */}
+            <ChatInputForm
+              onSubmit={handleSendMessage}
+              isSending={mutation.isPending}
+            />
           </div>
         </div>
       </div>

@@ -11,5 +11,6 @@ export default [
   route("workspaces", "routes/workspaces.tsx"),
   route("workspaces/:workspaceId", "routes/workspace-layout.tsx", [
     route("chat/:chatId", "routes/chat.tsx"),
+    route("chat/new", "routes/new-chat.tsx"),
   ]),
 ] satisfies RouteConfig;

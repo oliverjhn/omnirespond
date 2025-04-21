@@ -18,7 +18,6 @@ import { useWorkspaces } from "~/hooks/useWorkspaces";
 import { useChats } from "~/hooks/useChats";
 import { cn } from "~/lib/utils";
 import * as React from "react";
-// import type { Workspace } from "~/types/workspace";
 import type { Workspace, Chat } from "~/types/db.t";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import {
@@ -90,12 +89,10 @@ export function ChatSidebar({
   const handleCreateChat = async () => {
     if (!workspaceId) return;
     try {
-      const newChat = await createChat("New Chat");
-      if (newChat) {
-        navigate(`/workspaces/${workspaceId}/chat/${newChat.id}`);
-      }
+      // Navigate to the new chat page instead of creating a chat immediately
+      navigate(`/workspaces/${workspaceId}/chat/new`);
     } catch (error) {
-      console.error("Failed to create chat:", error);
+      console.error("Failed to navigate to new chat:", error);
     }
   };
 
@@ -150,8 +147,8 @@ export function ChatSidebar({
                     {isLoading
                       ? "Loading..."
                       : workspaces.find(
-                          (workspace) => workspace.id === workspaceId
-                        )?.name || "Select workspace..."}
+                        (workspace) => workspace.id === workspaceId
+                      )?.name || "Select workspace..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>

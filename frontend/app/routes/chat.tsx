@@ -14,6 +14,101 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { redirect, useParams } from "react-router";
+import { createClient } from "~/lib/supabase/client";
+import React from "react";
+
+const supabase = createClient();
+
+// Custom hook to manage chat status
+function useChatStatus(chatId: string) {
+  const queryClient = useQueryClient();
+
+  const { data: chatStatus = "complete" } = useQuery({
+    queryKey: ["chatStatus", chatId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("chats")
+        .select("chat_status")
+        .eq("id", chatId)
+        .single();
+
+      if (error) throw error;
+      return data.chat_status;
+    },
+  });
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel(`chat_status_${chatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chats",
+          filter: `id=eq.${chatId}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            queryClient.setQueryData(
+              ["chatStatus", chatId],
+              payload.new.chat_status
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId, queryClient]);
+
+  return chatStatus;
+}
+
+// Custom hook to update chat status
+function useUpdateChatStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      chatId,
+      status,
+    }: {
+      chatId: string;
+      status: "responding" | "complete" | "failed";
+    }) => {
+      const { error } = await supabase
+        .from("chats")
+        .update({ chat_status: status })
+        .eq("id", chatId);
+
+      if (error) throw error;
+      return status;
+    },
+    onMutate: async ({ chatId, status }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["chatStatus", chatId] });
+
+      // Snapshot the previous value
+      const previousStatus = queryClient.getQueryData(["chatStatus", chatId]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["chatStatus", chatId], status);
+
+      return { previousStatus };
+    },
+    onError: (err, { chatId }, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousStatus) {
+        queryClient.setQueryData(["chatStatus", chatId], context.previousStatus);
+      }
+      console.error("Error updating chat status:", err);
+    },
+  });
+}
 
 // Extend Message type to include loading state
 type ExtendedMessage = Message & {
@@ -34,7 +129,8 @@ const sendMessage = async (
   prompt: string,
   conversation: Message[],
   chatId: string,
-  workspaceId: string
+  workspaceId: string,
+  updateChatStatus: (params: { chatId: string; status: "responding" | "complete" | "failed" }) => Promise<"responding" | "complete" | "failed">
 ): Promise<ExtendedMessage[]> => {
   // Create user message in Supabase immediately
   const userMessage = await createMessage({
@@ -44,6 +140,9 @@ const sendMessage = async (
   });
 
   try {
+    // Update chat status to responding
+    await updateChatStatus({ chatId, status: "responding" });
+
     const response = await fetch(`${import.meta.env.VITE_API_URL}/query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -59,6 +158,8 @@ const sendMessage = async (
     });
 
     if (!response.ok) {
+      // Update chat status to failed if request fails
+      await updateChatStatus({ chatId, status: "failed" });
       throw new Error("Failed to send message");
     }
 
@@ -71,8 +172,13 @@ const sendMessage = async (
       chat_id: chatId,
     });
 
+    // Update chat status to complete
+    await updateChatStatus({ chatId, status: "complete" });
+
     return [userMessage, assistantMessage];
   } catch (error) {
+    // Update chat status to failed if any error occurs
+    await updateChatStatus({ chatId, status: "failed" });
     console.error("Error sending message:", error);
     throw error;
   }
@@ -157,6 +263,7 @@ const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
 export default function Chat({ loaderData }: Route.ComponentProps) {
   const { messages: initialMessages, chatId, chatName } = loaderData;
   const { workspaceId } = useParams<{ workspaceId: string; chatId: string }>();
+  const updateChatStatus = useUpdateChatStatus();
 
   useEffect(() => {
     if (chatName) {
@@ -199,7 +306,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
 
   const mutation = useMutation({
     mutationFn: (data: MessageFormData) =>
-      sendMessage(data.prompt, messages, chatId, workspaceId!),
+      sendMessage(data.prompt, messages, chatId, workspaceId!, updateChatStatus.mutateAsync),
     onMutate: async (data) => {
       // Create optimistic user message and loading message
       const optimisticUserMessage: ExtendedMessage = {
@@ -262,6 +369,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
           });
         }
       );
+
       reset();
 
       // Reset textarea height after submission

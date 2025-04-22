@@ -96,7 +96,7 @@ export function ChatSidebar({
     if (!workspaceId) return;
     try {
       // Navigate to the new chat page instead of creating a chat immediately
-      navigate(`/workspaces/${workspaceId}/chat/new`);
+      navigate(`/workspaces/${workspaceId}`);
     } catch (error) {
       console.error("Failed to navigate to new chat:", error);
     }

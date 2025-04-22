@@ -73,7 +73,9 @@ class VectorDBService(BaseService):
             collection = self.collection_name
             points = [
                 PointStruct(
-                    id=self._generate_chunk_id(metadata["filename"], chunk),
+                    id=self._generate_chunk_id(
+                        metadata["filename"], workspace_id, chunk
+                    ),
                     vector={
                         "dense": embedding.tolist(),
                         "sparse": models.SparseVector(
@@ -97,11 +99,13 @@ class VectorDBService(BaseService):
             self.logger.error(f"Failed to store embeddings: {str(e)}")
             raise
 
-    def _generate_chunk_id(self, filename: str, chunk: DocumentChunk) -> int:
-        """Generate a deterministic ID for a chunk"""
+    def _generate_chunk_id(
+        self, filename: str, workspace_id: str, chunk: DocumentChunk
+    ) -> int:
+        """Generate a deterministic ID for a chunk based on filename, workspace_id and chunk content"""
         import hashlib
 
-        content_to_hash = f"{filename}:{chunk.text}"
+        content_to_hash = f"{filename}:{workspace_id}:{chunk.text}"
         hash_object = hashlib.sha256(content_to_hash.encode())
         return int.from_bytes(hash_object.digest()[:8], byteorder="big")
 

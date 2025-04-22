@@ -24,6 +24,10 @@ type MessageFormData = z.infer<typeof messageSchema>;
 export function ChatInputForm({ onSubmit, isSending }: ChatInputFormProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
   const {
     register,
     handleSubmit,

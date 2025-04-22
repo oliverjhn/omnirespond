@@ -90,5 +90,6 @@ export const useWorkspaces = () => {
     isCreating: createWorkspaceMutation.isPending,
     isUpdating: updateWorkspaceMutation.isPending,
     isDeleting: deleteWorkspaceMutation.isPending,
+    refetch: workspacesQuery.refetch,
   };
 };

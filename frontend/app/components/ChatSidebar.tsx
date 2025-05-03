@@ -52,25 +52,20 @@ import {
 } from "~/components/ui/context-menu";
 import { useNavigate, useParams, Link } from "react-router";
 import { useTheme } from "~/providers/ThemeProvider";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 
-interface ChatSidebarProps {
-  chats: Chat[];
-  workspaces: Workspace[];
-}
-
-export function ChatSidebar({
-  chats: initialChats,
-  workspaces,
-}: ChatSidebarProps) {
+export function ChatSidebar() {
   const [open, setOpen] = React.useState(false);
-  const { isLoading, createWorkspace } = useWorkspaces();
+  const { workspaces, isLoading, createWorkspace } = useWorkspaces();
   const params = useParams();
   const workspaceId = params.workspaceId;
   const navigate = useNavigate();
-  const { chats, deleteChat, createChat } = useChats(
-    workspaceId || "",
-    initialChats
-  );
+  const { chats, deleteChat, createChat } = useChats(workspaceId || "");
   const { theme, setTheme } = useTheme();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
@@ -136,205 +131,207 @@ export function ChatSidebar({
   }, [workspaces, workspaceId, navigate]);
 
   return (
-    <SidebarProvider>
-      <Sidebar className="border-r">
-        <SidebarContent>
-          <div className="space-y-4 px-4 py-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Workspaces</h2>
-            </div>
-            <div className="space-y-2">
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between"
-                    disabled={isLoading}
-                  >
-                    {isLoading
-                      ? "Loading..."
-                      : workspaces.find(
+    <TooltipProvider>
+      <SidebarProvider>
+        <Sidebar className="border-r">
+          <SidebarContent>
+            <div className="space-y-4 px-4 py-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Workspaces</h2>
+              </div>
+              <div className="space-y-2">
+                <Popover open={open} onOpenChange={setOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={open}
+                      className="w-full justify-between"
+                      disabled={isLoading}
+                    >
+                      {isLoading
+                        ? "Loading..."
+                        : workspaces.find(
                           (workspace) => workspace.id === workspaceId
                         )?.name || "Select workspace..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command
-                    filter={(value, search) => {
-                      if (value.includes("eightysixrocks!")) return 0;
-                      const normalizedValue = value.toLowerCase();
-                      const normalizedSearch = search.toLowerCase();
-                      return normalizedValue.includes(normalizedSearch) ? 1 : 0;
-                    }}
-                  >
-                    <CommandInput placeholder="Search workspace..." />
-                    <CommandList>
-                      <CommandEmpty>No workspace found.</CommandEmpty>
-                      <div className="max-h-[200px] overflow-y-auto">
-                        <CommandGroup heading="Workspaces">
-                          {workspaces
-                            .sort(
-                              (a, b) =>
-                                new Date(b.updated_at).getTime() -
-                                new Date(a.updated_at).getTime()
-                            )
-                            .map((workspace: Workspace) => (
-                              <CommandItem
-                                key={workspace.id}
-                                value={workspace.name}
-                                onSelect={() => {
-                                  setOpen(false);
-                                }}
-                                className="p-0"
-                              >
-                                <Link
-                                  to={`/workspaces/${workspace.id}`}
-                                  className="flex w-full h-full items-center px-[8px] py-[6px]"
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command
+                      filter={(value, search) => {
+                        if (value.includes("eightysixrocks!")) return 0;
+                        const normalizedValue = value.toLowerCase();
+                        const normalizedSearch = search.toLowerCase();
+                        return normalizedValue.includes(normalizedSearch) ? 1 : 0;
+                      }}
+                    >
+                      <CommandInput placeholder="Search workspace..." />
+                      <CommandList>
+                        <CommandEmpty>No workspace found.</CommandEmpty>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          <CommandGroup heading="Workspaces">
+                            {workspaces
+                              .sort(
+                                (a, b) =>
+                                  new Date(b.updated_at).getTime() -
+                                  new Date(a.updated_at).getTime()
+                              )
+                              .map((workspace: Workspace) => (
+                                <CommandItem
+                                  key={workspace.id}
+                                  value={workspace.name}
+                                  onSelect={() => {
+                                    setOpen(false);
+                                  }}
+                                  className="p-0"
                                 >
-                                  {workspace.name}
-                                </Link>
-                              </CommandItem>
-                            ))}
+                                  <Link
+                                    to={`/workspaces/${workspace.id}`}
+                                    className="flex w-full h-full items-center px-[8px] py-[6px]"
+                                  >
+                                    {workspace.name}
+                                  </Link>
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        </div>
+                        <CommandSeparator />
+                        <CommandGroup heading="Actions">
+                          <CommandItem
+                            value="eightysixrocks!"
+                            onSelect={() => null}
+                          >
+                            <CreateWorkspaceDialog
+                              onCreateWorkspace={handleCreateWorkspace}
+                              isLoading={isLoading}
+                            />
+                          </CommandItem>
                         </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <Separator />
+            <div className="flex h-[52px] items-center justify-between px-4 py-2">
+              <h2 className="text-lg font-semibold">Chats</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleCreateChat}
+                disabled={!workspaceId}
+              >
+                <Plus className="h-4 w-4" />
+                <span className="sr-only">New chat</span>
+              </Button>
+            </div>
+            <Separator />
+            <ScrollArea className="flex-1 p-2">
+              <div className="space-y-1">
+                {chats.map((chat) => (
+                  <ContextMenu key={chat.id}>
+                    <ContextMenuTrigger asChild>
+                      <div className={cn(
+                        "relative group/chat rounded-md w-full",
+                        "hover:bg-accent",
+                        params.chatId === chat.id && "bg-accent"
+                      )}>
+                        <Tooltip delayDuration={1000} disableHoverableContent={true}>
+                          <TooltipTrigger asChild>
+                            <Link
+                              to={`/workspaces/${workspaceId}/chat/${chat.id}`}
+                              className="grid grid-cols-[20px_1fr] gap-2 items-center px-2 py-1.5 w-full cursor-pointer"
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                              <p className="text-sm pr-8 overflow-hidden whitespace-nowrap" style={{ maskImage: 'linear-gradient(to right, black 85%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)' }}>{chat.name}</p>
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" align="center">
+                            <span>{chat.name}</span>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-200 ease-in-out hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-sm"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDeleteClick(chat.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete chat</span>
+                        </Button>
                       </div>
-                      <CommandSeparator />
-                      <CommandGroup heading="Actions">
-                        <CommandItem
-                          value="eightysixrocks!"
-                          onSelect={() => null}
-                        >
-                          <CreateWorkspaceDialog
-                            onCreateWorkspace={handleCreateWorkspace}
-                            isLoading={isLoading}
-                          />
-                        </CommandItem>
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-          <Separator />
-          <div className="flex h-[52px] items-center justify-between px-4 py-2">
-            <h2 className="text-lg font-semibold">Chats</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleCreateChat}
-              disabled={!workspaceId}
-            >
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">New chat</span>
-            </Button>
-          </div>
-          <Separator />
-          <ScrollArea className="flex-1 p-2">
-            <div className="space-y-1">
-              {chats.map((chat) => (
-                <ContextMenu key={chat.id}>
-                  <ContextMenuTrigger asChild>
-                    <div className="relative group/chat flex items-center hover:bg-accent rounded-md">
-                      <Button
-                        variant="ghost"
-                        className={cn(
-                          "w-full justify-start gap-2 group-hover/chat:bg-transparent",
-                          params.chatId === chat.id && "bg-accent"
-                        )}
-                        asChild
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-48">
+                      <ContextMenuItem
+                        inset
+                        onSelect={() => console.log("Rename chat:", chat.id)}
                       >
-                        <Link
-                          to={`/workspaces/${workspaceId}/chat/${chat.id}`}
-                          className="flex items-center flex-grow min-w-0"
-                        >
-                          <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate flex-grow">
-                            {chat.name}
-                          </span>
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 right-0 absolute opacity-0 group-hover/chat:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-sm"
-                        onClick={(e) => {
-                          e.preventDefault(); // Prevent triggering link navigation
-                          handleDeleteClick(chat.id);
-                        }}
+                        Rename
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        inset
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                        onSelect={() => handleDeleteClick(chat.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete chat</span>
-                      </Button>
-                    </div>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent className="w-48">
-                    <ContextMenuItem
-                      inset
-                      onSelect={() => console.log("Rename chat:", chat.id)}
-                    >
-                      Rename
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      inset
-                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                      onSelect={() => handleDeleteClick(chat.id)}
-                    >
-                      Delete
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ))}
-              {chats.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground">
-                  No chats yet
-                </div>
-              )}
+                        Delete
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                ))}
+                {chats.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No chats yet
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+            <div className="mt-auto p-4 border-t">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="w-8 h-8 rounded-md"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
             </div>
-          </ScrollArea>
-          <div className="mt-auto p-4 border-t">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-8 h-8 rounded-md"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </SidebarContent>
-      </Sidebar>
-      {/* Confirmation Dialog */}
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this
-              chat and all its messages.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setChatIdToDelete(null)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </SidebarProvider>
+          </SidebarContent>
+        </Sidebar>
+        {/* Confirmation Dialog */}
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this
+                chat and all its messages.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setChatIdToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConfirm}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }

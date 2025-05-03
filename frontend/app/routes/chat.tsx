@@ -11,6 +11,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { redirect, useParams } from "react-router";
 import { createClient } from "~/lib/supabase/client";
 import { ChatInputForm } from "~/components/chat/ChatInputForm";
+import { Button } from "~/components/ui/button";
 
 const supabase = createClient();
 
@@ -223,11 +224,12 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       prompt?: string;
       conversation: Message[];
       isAutoStart: boolean;
+      isRetry: boolean;
     }) => {
       let userMessage: Message | null = null;
       try {
-        // Step 1: Create user message ONLY if it's a manual send
-        if (!data.isAutoStart && data.prompt) {
+        // Step 1: Create user message ONLY if it's a manual send AND not a retry
+        if (!data.isAutoStart && !data.isRetry && data.prompt) {
           userMessage = await createMessage({
             content: data.prompt,
             role: "user",
@@ -297,13 +299,15 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       ]);
 
       // Generate temporary IDs
-      const optimisticUserMessageId = variables.isAutoStart
-        ? null
-        : crypto.randomUUID();
+      const optimisticUserMessageId =
+        !variables.isAutoStart && !variables.isRetry && variables.prompt // Only generate if needed
+          ? crypto.randomUUID()
+          : null;
       const optimisticLoadingMessageId = crypto.randomUUID();
 
       // Create optimistic messages
       let optimisticUserMessage: ExtendedMessage | null = null;
+      // Only create optimistic user message if it's a manual send and not a retry
       if (optimisticUserMessageId && variables.prompt) {
         optimisticUserMessage = {
           content: variables.prompt,
@@ -370,11 +374,12 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       );
     },
     onError: (error, variables, context) => {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "An unknown error occurred. Please try again."
-      );
+      // Remove toast.error - rely on inline error/retry UI
+      // toast.error(
+      //   error instanceof Error
+      //     ? error.message
+      //     : "An unknown error occurred. Please try again."
+      // );
       // Rollback optimistic updates if context exists
       if (context?.previousMessages) {
         queryClient.setQueryData(
@@ -382,6 +387,9 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
           context.previousMessages
         );
       }
+      // Ensure status is set to failed even if rollback occurs after status update
+      // The mutationFn already sets it, but this is a safeguard
+      queryClient.setQueryData(["chatStatus", chatId], "failed");
     },
   });
 
@@ -401,6 +409,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       mutation.mutate({
         conversation: messages, // Pass the single user message
         isAutoStart: true,
+        isRetry: false,
       });
     }
     // Add mutation.isSuccess to dependencies to prevent re-trigger after success
@@ -435,9 +444,41 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       prompt: sanitizedPrompt,
       conversation: messages, // Pass current messages as history
       isAutoStart: false,
+      isRetry: false,
     });
 
     // Optimistic updates are handled entirely within onMutate
+  };
+
+  const handleRetry = () => {
+    const lastUserMessage = findLastUserMessage(messages);
+    if (!lastUserMessage) return;
+
+    const conversationHistory = getHistoryBeforeMessage(
+      messages,
+      lastUserMessage.id
+    );
+
+    mutation.mutate({
+      prompt: lastUserMessage.content, // Add the prompt content
+      conversation: conversationHistory,
+      isAutoStart: false, // Set to false for retry
+      isRetry: true, // Signal that this is a retry
+    });
+  };
+
+  // Helper function to find the last user message
+  const findLastUserMessage = (msgs: Message[]): Message | undefined => {
+    return [...msgs].reverse().find((msg) => msg.role === "user");
+  };
+
+  // Helper function to get conversation history before a specific message
+  const getHistoryBeforeMessage = (
+    msgs: Message[],
+    messageId: string
+  ): Message[] => {
+    const index = msgs.findIndex((msg) => msg.id === messageId);
+    return index > 0 ? msgs.slice(0, index) : [];
   };
 
   return (
@@ -453,10 +494,22 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
         </div>
         <div className="p-4 bg-background">
           <div className="max-w-3xl mx-auto">
-            {/* Use the new ChatInputForm component */}
+            {/* Error Message and Retry Button */}
+            {chatStatus === "failed" && (
+              <div className="flex flex-col items-center justify-center p-4 gap-2">
+                <p className="text-sm text-destructive">
+                  Failed to get response.
+                </p>
+                <Button variant="outline" size="sm" onClick={handleRetry}>
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {/* Input Form - disable while responding or if failed */}
             <ChatInputForm
               onSubmit={handleSendMessage}
-              isSending={mutation.isPending}
+              isSending={mutation.isPending || chatStatus === "failed"}
             />
           </div>
         </div>

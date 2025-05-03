@@ -8,9 +8,11 @@ import { redirect } from "react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { WorkspaceSidebar } from "~/components/WorkspaceSidebar";
+import type { ShouldRevalidateFunctionArgs } from "react-router";
 
 // implement auth in 'loader' function later
 
+/*
 export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
   currentWorkspace: Workspace;
   workspaceChats: Chat[];
@@ -21,6 +23,7 @@ export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
   if (!workspaceId) {
     throw new Error("Workspace ID is required");
   }
+  console.log("Workspace Layout Loader: Fetching data for workspace", workspaceId);
   const [currentWorkspace, allWorkspaces, workspaceChats] = await Promise.all([
     getWorkspace(workspaceId),
     getWorkspaces(),
@@ -40,9 +43,34 @@ export async function clientLoader({ params }: Route.LoaderArgs): Promise<{
 
   return { currentWorkspace, workspaceChats, allWorkspaces };
 }
+clientLoader.hydrate = false;
+*/
 
-export default function WorkspaceLayout({ loaderData }: Route.ComponentProps) {
-  const { currentWorkspace, workspaceChats, allWorkspaces } = loaderData;
+/*
+export function shouldRevalidate({
+  currentParams,
+  nextParams,
+  defaultShouldRevalidate
+}: ShouldRevalidateFunctionArgs) {
+  console.log(
+    `shouldRevalidate - Current: ${currentParams.workspaceId}, Next: ${nextParams.workspaceId}`
+  );
+  const workspaceChanged = currentParams.workspaceId !== nextParams.workspaceId;
+  console.log(`shouldRevalidate - Workspace changed: ${workspaceChanged}`);
+
+  // If workspace hasn't changed, definitely don't revalidate
+  if (!workspaceChanged) {
+    console.log("shouldRevalidate - Returning false (workspace unchanged)");
+    return false;
+  }
+
+  // Otherwise, defer to the default behavior
+  console.log("shouldRevalidate - Returning default behavior (workspace changed)");
+  return defaultShouldRevalidate;
+}
+*/
+
+export default function WorkspaceLayout() {
   const [searchParams, setSearchParams] = useSearchParams();
   const error = searchParams.get("error");
   const shownToast = useRef(false);
@@ -62,7 +90,7 @@ export default function WorkspaceLayout({ loaderData }: Route.ComponentProps) {
     <div className="flex h-screen">
       <div className="flex flex-1 overflow-hidden">
         <div className="h-full">
-          <ChatSidebar chats={workspaceChats} workspaces={allWorkspaces} />
+          <ChatSidebar />
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">

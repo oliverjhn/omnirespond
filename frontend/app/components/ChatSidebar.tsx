@@ -152,8 +152,8 @@ export function ChatSidebar() {
                       {isLoading
                         ? "Loading..."
                         : workspaces.find(
-                          (workspace) => workspace.id === workspaceId
-                        )?.name || "Select workspace..."}
+                            (workspace) => workspace.id === workspaceId
+                          )?.name || "Select workspace..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0" />
                     </Button>
                   </PopoverTrigger>
@@ -163,7 +163,9 @@ export function ChatSidebar() {
                         if (value.includes("eightysixrocks!")) return 0;
                         const normalizedValue = value.toLowerCase();
                         const normalizedSearch = search.toLowerCase();
-                        return normalizedValue.includes(normalizedSearch) ? 1 : 0;
+                        return normalizedValue.includes(normalizedSearch)
+                          ? 1
+                          : 0;
                       }}
                     >
                       <CommandInput placeholder="Search workspace..." />
@@ -234,19 +236,32 @@ export function ChatSidebar() {
                 {chats.map((chat) => (
                   <ContextMenu key={chat.id}>
                     <ContextMenuTrigger asChild>
-                      <div className={cn(
-                        "relative group/chat rounded-md w-full",
-                        "hover:bg-accent",
-                        params.chatId === chat.id && "bg-accent"
-                      )}>
-                        <Tooltip delayDuration={1000} disableHoverableContent={true}>
+                      <div
+                        className={cn(
+                          "relative group/chat rounded-md w-full",
+                          "hover:bg-accent",
+                          params.chatId === chat.id && "bg-accent"
+                        )}
+                      >
+                        <Tooltip
+                          delayDuration={1000}
+                          disableHoverableContent={true}
+                        >
                           <TooltipTrigger asChild>
                             <Link
                               to={`/workspaces/${workspaceId}/chat/${chat.id}`}
                               className="grid grid-cols-[20px_1fr] gap-2 items-center px-2 py-1.5 w-full cursor-pointer"
                             >
                               <MessageSquare className="h-4 w-4" />
-                              <p className="text-sm pr-8 overflow-hidden whitespace-nowrap" style={{ maskImage: 'linear-gradient(to right, black 85%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)' }}>{chat.name}</p>
+                              <p
+                                className="text-sm pr-8 overflow-hidden whitespace-nowrap 
+                                           [mask-image:linear-gradient(to_right,black_85%,transparent_100%)] 
+                                           [-webkit-mask-image:linear-gradient(to_right,black_85%,transparent_100%)]
+                                           group-hover/chat:[mask-image:linear-gradient(to_right,black_60%,transparent_90%)]
+                                           group-hover/chat:[-webkit-mask-image:linear-gradient(to_right,black_60%,transparent_90%)]"
+                              >
+                                {chat.name}
+                              </p>
                             </Link>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" align="center">

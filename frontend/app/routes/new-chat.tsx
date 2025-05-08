@@ -9,7 +9,7 @@ import { ChatInputForm } from "~/components/chat/ChatInputForm";
 import type { Chat } from "~/types/db.t"; // Corrected import path
 
 interface CreateChatVariables {
-  title: string;
+  title?: string;
 }
 
 export default function NewChat() {
@@ -51,7 +51,7 @@ export default function NewChat() {
 
     try {
       const newChat = await createChatMutate({
-        title: trimmedPrompt.substring(0, 50),
+        // title: trimmedPrompt.substring(0, 50), // Pass no title to use Supabase default
       });
 
       if (newChat) {

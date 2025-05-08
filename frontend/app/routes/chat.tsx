@@ -1,12 +1,12 @@
 import type { Route } from "./+types/chat";
 import type { Message } from "~/types/db.t";
 import { getMessages, createMessage } from "~/api/messages";
-import { getChat } from "~/api/chats";
+import { getChat, generateChatTitle } from "~/api/chats";
 import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 import { Toaster } from "~/components/ui/sonner";
 import { toast } from "sonner";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { redirect, useParams } from "react-router";
 import { createClient } from "~/lib/supabase/client";
@@ -191,19 +191,72 @@ const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
 };
 
 export default function Chat({ loaderData }: Route.ComponentProps) {
-  const { messages: initialMessages, chatId, chatName } = loaderData;
+  const {
+    messages: initialMessages,
+    chatId,
+    chatName: initialChatName,
+  } = loaderData;
   const { workspaceId } = useParams<{ workspaceId: string; chatId: string }>();
   const updateChatStatus = useUpdateChatStatus();
-  const chatStatus = useChatStatus(chatId); // Get chat status
+  const chatStatus = useChatStatus(chatId);
+  const queryClient = useQueryClient();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Use state for chat name to allow dynamic updates
+  const [chatName, setChatName] = useState(initialChatName);
+
+  // Define useGenerateChatTitle Hook INSIDE the component
+  const useGenerateChatTitleInternal = () => {
+    return useMutation({
+      mutationFn: async ({ prompt }: { prompt: string }) => {
+        if (!workspaceId)
+          throw new Error("Workspace ID missing for title generation");
+        const { title } = await generateChatTitle(prompt);
+        return { title };
+      },
+      onSuccess: async ({ title }) => {
+        console.log("Successfully generated title:", title);
+        // Update Supabase
+        try {
+          const { error: updateError } = await supabase
+            .from("chats")
+            .update({ name: title })
+            .eq("id", chatId);
+          if (updateError) {
+            console.error(
+              "Error updating chat title in Supabase:",
+              updateError
+            );
+            // Optionally, handle this error, e.g., by showing a toast
+          }
+        } catch (e) {
+          console.error("Exception when updating chat title in Supabase:", e);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["chats", workspaceId] });
+        document.title = title;
+        setChatName(title);
+      },
+      onError: (error) => {
+        console.error("Error generating chat title:", error);
+      },
+    });
+  };
+  // Call the internal hook definition
+  const generateTitleMutation = useGenerateChatTitleInternal();
+
+  useEffect(() => {
+    // Update state if loader data changes (e.g., navigation)
+    setChatName(initialChatName);
+  }, [initialChatName]);
 
   useEffect(() => {
     if (chatName) {
       document.title = chatName;
+    } else {
+      document.title = "New Chat"; // Default title if none exists
     }
   }, [chatName]);
-
-  const queryClient = useQueryClient();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize query cache with initial messages
   useEffect(() => {
@@ -401,18 +454,31 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
       messages.length === 1 &&
       messages[0].role === "user" &&
       !mutation.isPending &&
-      !mutation.isSuccess // Prevent re-triggering if mutation just succeeded
+      !mutation.isSuccess
     ) {
       console.log("Auto-starting generation for pending chat...");
-      // Pass the existing user message as conversation history for the API call
-      // The mutationFn will extract the prompt from this if needed
+      const prompt = messages[0].content;
+
+      // Also trigger title generation for auto-started chats if no name exists yet
+      const needsTitle = !chatName || chatName === "New Chat";
+      if (
+        needsTitle &&
+        workspaceId &&
+        prompt &&
+        !generateTitleMutation.isPending
+      ) {
+        console.log("Auto-generating title for pending chat...");
+        generateTitleMutation.mutate({ prompt });
+      }
+
+      // Trigger message mutation
       mutation.mutate({
-        conversation: messages, // Pass the single user message
+        prompt: prompt,
+        conversation: messages,
         isAutoStart: true,
         isRetry: false,
       });
     }
-    // Add mutation.isSuccess to dependencies to prevent re-trigger after success
   }, [
     chatStatus,
     messages,
@@ -421,7 +487,11 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
     mutation.isSuccess,
     mutation.mutate,
     chatId,
-  ]); // Added mutation.mutate and chatId
+    workspaceId,
+    chatName,
+    generateTitleMutation.mutate,
+    generateTitleMutation.isPending,
+  ]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -431,23 +501,36 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
     scrollToBottom();
   }, [messages]);
 
-  // Define the submission handler for the new component
+  // Define the submission handler
   const handleSendMessage = (prompt: string) => {
-    if (mutation.isPending) return; // Should be handled by button state, but double-check
+    if (mutation.isPending) return;
 
-    const sanitizedPrompt = prompt.trim(); // Already trimmed in ChatInputForm, but good practice
+    const sanitizedPrompt = prompt.trim();
     if (sanitizedPrompt.length === 0) return;
 
-    // Trigger the mutation for a manual send
-    // Pass the prompt and the current messages as history
+    // Check if title needs generation
+    const isFirstUserMessage =
+      messages.filter((m) => m.role === "user").length === 0;
+    const needsTitle = !chatName || chatName === "New Chat";
+
+    // Ensure workspaceId is available before calling mutation
+    if (
+      isFirstUserMessage &&
+      needsTitle &&
+      workspaceId &&
+      !generateTitleMutation.isPending
+    ) {
+      console.log("Generating title for first user message...");
+      generateTitleMutation.mutate({ prompt: sanitizedPrompt });
+    }
+
+    // Trigger message sending mutation
     mutation.mutate({
       prompt: sanitizedPrompt,
-      conversation: messages, // Pass current messages as history
+      conversation: messages,
       isAutoStart: false,
       isRetry: false,
     });
-
-    // Optimistic updates are handled entirely within onMutate
   };
 
   const handleRetry = () => {

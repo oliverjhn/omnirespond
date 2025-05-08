@@ -10,5 +10,8 @@
   "packageManager": "npm@10.2.4",
   "scripts": {
     "dev": "turbo run dev"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1"
   }
 }

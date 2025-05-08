@@ -39,7 +39,7 @@ export function useChats(workspaceId: string) {
   }, [queryClient, workspaceId]);
 
   const createChatMutation = useMutation({
-    mutationFn: (name: string) => createChat(workspaceId, name),
+    mutationFn: (name?: string) => createChat(workspaceId, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chats", workspaceId] });
     },

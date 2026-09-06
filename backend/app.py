@@ -10,6 +10,8 @@ from schemas import (
     UploadResponse,
     QueryRequest,
     QueryResponse,
+    TitleRequest,
+    TitleResponse,
     DeleteRequest,
     DeleteResponse,
 )
@@ -144,6 +146,14 @@ async def query_documents(
         response=result["response"],
         relevant_chunks=result["relevant_chunks"],
     )
+
+
+@app.post("/title", response_model=TitleResponse)
+async def generate_title(
+    request: TitleRequest, service: DocumentService = Depends(get_services)
+):
+    title = await service.llm.generate_title(request.prompt)
+    return TitleResponse(title=title)
 
 
 @app.post("/delete", response_model=DeleteResponse)

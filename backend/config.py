@@ -8,11 +8,10 @@ from functools import lru_cache
 class Settings(BaseSettings):
     # OpenAI Configuration
     OPENAI_API_KEY: str
-    OPENAI_MODEL_NAME: str = "gpt-4o-mini"
+    OPENAI_MODEL_NAME: str = "gpt-5.4-mini-2026-03-17"
 
-    # Gemini Configuration
-    GEMINI_API_KEY: str
-    GEMINI_MODEL_NAME: str = "gemini-2.0-flash"
+    # Kept optional so an existing .env entry does not prevent startup.
+    GEMINI_API_KEY: Optional[str] = None
 
     # Cohere Configuration
     COHERE_API_KEY: str
@@ -78,8 +77,6 @@ QDRANT_URL = settings.QDRANT_URL
 QDRANT_API_KEY = settings.QDRANT_API_KEY
 DEFAULT_COLLECTION = settings.DEFAULT_COLLECTION
 DEFAULT_EMBEDDING_MODEL = settings.DEFAULT_EMBEDDING_MODEL
-GEMINI_API_KEY = settings.GEMINI_API_KEY
-GEMINI_MODEL_NAME = settings.GEMINI_MODEL_NAME
 COHERE_API_KEY = settings.COHERE_API_KEY
 ENVIRONMENT = settings.ENVIRONMENT
 ALLOWED_ORIGINS = settings.ALLOWED_ORIGINS
@@ -90,7 +87,6 @@ MAX_UPLOAD_SIZE = settings.MAX_UPLOAD_SIZE
 def validate_settings():
     required_settings = [
         ("OPENAI_API_KEY", OPENAI_API_KEY),
-        ("GEMINI_API_KEY", GEMINI_API_KEY),
         ("COHERE_API_KEY", COHERE_API_KEY),
         ("R2_ENDPOINT_URL", R2_ENDPOINT_URL),
         ("R2_ACCESS_KEY", R2_ACCESS_KEY),

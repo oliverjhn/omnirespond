@@ -7,11 +7,17 @@ import { cn } from "~/lib/utils";
 import { Toaster } from "~/components/ui/sonner";
 import { toast } from "sonner";
 import { useRef, useEffect, useState } from "react";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useQuery,
+  type UseMutationResult,
+} from "@tanstack/react-query";
 import { redirect, useParams } from "react-router";
 import { createClient } from "~/lib/supabase/client";
 import { ChatInputForm } from "~/components/chat/ChatInputForm";
 import { Button } from "~/components/ui/button";
+import ReactMarkdown from "react-markdown";
 
 const supabase = createClient();
 
@@ -178,7 +184,9 @@ const MessageBubble = ({ message }: { message: ExtendedMessage }) => {
               <div className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" />
             </div>
           ) : (
-            <p className="text-base whitespace-pre-wrap">{message.content}</p>
+            <div className="prose dark:prose-invert max-w-none">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
           )}
         </div>
       ) : (
@@ -206,7 +214,12 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
   const [chatName, setChatName] = useState(initialChatName);
 
   // Define useGenerateChatTitle Hook INSIDE the component
-  const useGenerateChatTitleInternal = () => {
+  const useGenerateChatTitleInternal = (): UseMutationResult<
+    { title: string },
+    Error,
+    { prompt: string },
+    unknown
+  > => {
     return useMutation({
       mutationFn: async ({ prompt }: { prompt: string }) => {
         if (!workspaceId)
@@ -312,7 +325,7 @@ export default function Chat({ loaderData }: Route.ComponentProps) {
               role: msg.role,
               content: msg.content,
             })),
-            model: "gpt-4o-mini",
+            model: "gpt-5.4-mini-2026-03-17",
           }),
         });
 

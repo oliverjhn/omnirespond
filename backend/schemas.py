@@ -50,7 +50,7 @@ class QueryRequest(BaseModel):
         ..., description="Workspace ID to search in for multitenancy partition"
     )
     model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-5.4-mini-2026-03-17",
         description="Model to use for the query",
     )
 
@@ -68,6 +68,14 @@ class TimingInfo(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     relevant_chunks: List[Dict]
+
+
+class TitleRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, description="Prompt to title")
+
+
+class TitleResponse(BaseModel):
+    title: str
 
 
 class DeleteRequest(BaseModel):

@@ -1,6 +1,5 @@
 from .base import BaseService, log_timing
 from openai import OpenAI
-from google import genai
 from cohere import ClientV2
 from typing import List, Dict
 
@@ -10,7 +9,6 @@ class LLMService(BaseService):
         super().__init__()
         self.settings = settings
         self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.cohere_client = ClientV2(api_key=settings.COHERE_API_KEY)
 
     def _debug_print_conversation(self, messages: List[Dict[str, str]]) -> None:
@@ -75,25 +73,26 @@ class LLMService(BaseService):
             raise
 
     @log_timing
-    async def generate_gemini_response(
-        self, query: str, context: str, model: str = None
+    async def generate_title(
+        self, prompt: str, model: str = None
     ) -> str:
         try:
-            model = model or self.settings.GEMINI_MODEL_NAME
-            prompt = f"Query: {query}\n\nRelevant Context:\n{context}\n\nResponse:"
-
-            response = self.gemini_client.models.generate_content(
+            model = model or self.settings.OPENAI_MODEL_NAME
+            response = self.openai_client.responses.create(
                 model=model,
-                config=genai.types.GenerateContentConfig(
-                    system_instruction="""You are trained on the users documents and are able to answer questions about them. 
-                     You will ONLY use the information provided in the relevant context to answer the question, 
-                     and if you need to use information from your internal knowledge, you will explicitly state that.""",
+                instructions=(
+                    "Create a concise 3-5 word chat title. Return only the title, "
+                    "without quotation marks, labels, or punctuation at the end."
                 ),
-                contents=prompt,
+                input=prompt,
+                max_output_tokens=64,
             )
-            return response.text
+            title = response.output_text.strip().strip('"').strip()
+            if not title:
+                raise ValueError("OpenAI returned an empty title")
+            return title
         except Exception as e:
-            self.logger.error(f"Failed to generate Gemini response: {str(e)}")
+            self.logger.error(f"Failed to generate chat title: {str(e)}")
             raise
 
     @log_timing

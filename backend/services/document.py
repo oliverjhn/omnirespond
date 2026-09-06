@@ -119,8 +119,6 @@ class DocumentService(BaseService):
             response = await self.llm.generate_openai_response(
                 query, context, conversation, model
             )
-            # response = await self.llm.generate_gemini_response(query, context)
-
             return {
                 "response": response,
                 "relevant_chunks": reranked_results,
